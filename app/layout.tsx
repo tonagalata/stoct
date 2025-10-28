@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ServiceWorkerProvider } from "@/components/ServiceWorkerProvider";
+import { ToastProvider } from "@/components/ToastProvider";
 
 export const metadata: Metadata = {
   title: "Stoct - Card Manager",
@@ -41,10 +42,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="icon" href="/logo.png" />
       </head>
-      <body>
-        <ServiceWorkerProvider />
-        {children}
-      </body>
+            <body>
+              <ServiceWorkerProvider />
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </body>
     </html>
   );
 }

@@ -8,6 +8,8 @@ import { getCard, updateCard } from '@/lib/storage';
 import { copyToClipboard } from '@/lib/clipboard';
 import { Barcode } from '@/lib/barcode';
 import { encryptJsonWithPin, encodeToUrlFragment } from '@/lib/crypto';
+import { useToast } from '@/components/ToastProvider';
+import { Modal } from '@/components/Modal';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 
 interface CardPageProps {
@@ -32,7 +34,11 @@ export default function CardPage({ params }: CardPageProps) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePin, setSharePin] = useState('');
+  const [shareLink, setShareLink] = useState<string | null>(null);
   const router = useRouter();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const loadCard = async () => {
@@ -144,9 +150,8 @@ export default function CardPage({ params }: CardPageProps) {
 
   const handleSecureShare = async () => {
     if (!card) return;
-    const pin = prompt('Create a PIN to protect this link (4+ characters):') || '';
-    if (!pin || pin.length < 4) {
-      alert('PIN must be at least 4 characters.');
+    if (!sharePin || sharePin.length < 4) {
+      showToast('PIN must be at least 4 characters.', 'error');
       return;
     }
     try {
@@ -165,24 +170,25 @@ export default function CardPage({ params }: CardPageProps) {
       const url = `${window.location.origin}/s#${fragment}`;
       try {
         await navigator.clipboard.writeText(url);
-        setMessage('Secure share link copied to clipboard!');
+        setShareLink(url);
+        showToast('Secure link copied to clipboard!', 'success');
       } catch (clipErr) {
         const manual = confirm('Copy link manually? Selecting OK will open a dialog with the link.');
         if (manual) {
           prompt('Copy this secure link:', url);
-          setMessage('Secure link ready to share.');
+          setShareLink(url);
+          showToast('Secure link ready to share.', 'info');
         }
       }
-      setTimeout(() => setMessage(''), 4000);
+      setShareOpen(false);
     } catch (e: any) {
       if (e && e.message === 'SECURE_CONTEXT_REQUIRED') {
-        setMessage('Secure link requires HTTPS. Use Netlify domain or ngrok.');
+        showToast('Secure link requires HTTPS. Use Netlify or ngrok.', 'error');
       } else if (typeof e?.message === 'string' && e.message.includes('Web Crypto')) {
-        setMessage('Secure link unavailable: Web Crypto not supported in this context.');
+        showToast('Secure link unavailable: Web Crypto not supported.', 'error');
       } else {
-        setMessage('Failed to create secure link.');
+        showToast('Failed to create secure link.', 'error');
       }
-      setTimeout(() => setMessage(''), 4000);
     }
   };
 
@@ -348,7 +354,7 @@ export default function CardPage({ params }: CardPageProps) {
             )}
             {!isEditing && (
               <button
-                onClick={handleSecureShare}
+                onClick={() => setShareOpen(true)}
                 style={{
                   background: 'rgba(76, 175, 80, 0.2)',
                   color: '#4CAF50',
@@ -836,6 +842,53 @@ export default function CardPage({ params }: CardPageProps) {
           )}
         </div>
       </div>
+
+      {/* Share modal */}
+      <Modal open={shareOpen} title="Share Card Securely" onClose={() => setShareOpen(false)}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <label style={{ fontSize: '0.9rem', color: '#e0e0e0' }}>Enter a PIN (4+ characters)</label>
+          <input
+            type="password"
+            value={sharePin}
+            onChange={(e) => setSharePin(e.target.value)}
+            placeholder="PIN"
+            style={{
+              padding: '12px 14px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(255,255,255,0.1)',
+              color: '#fff'
+            }}
+          />
+          <button
+            onClick={handleSecureShare}
+            style={{
+              background: 'linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%)',
+              color: '#000',
+              border: 'none',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: 700
+            }}
+          >
+            Generate Link
+          </button>
+
+          {shareLink && (
+            <div style={{
+              marginTop: '8px',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '8px',
+              padding: '10px',
+              wordBreak: 'break-all'
+            }}>
+              {shareLink}
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Scanner Modal */}
       {showScanner && (

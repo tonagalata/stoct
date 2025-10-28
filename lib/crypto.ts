@@ -37,7 +37,14 @@ function b64decode(b64: string): Uint8Array {
 
 async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const subtle = getSubtle();
-  const keyMaterial = await subtle.importKey('raw', toBytes(password), 'PBKDF2', false, ['deriveKey']);
+  const passwordBytes = toBytes(password);
+  const keyMaterial = await subtle.importKey(
+    'raw',
+    passwordBytes.buffer as ArrayBuffer,
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
   return subtle.deriveKey(
     {
       name: 'PBKDF2',
