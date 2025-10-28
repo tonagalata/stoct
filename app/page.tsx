@@ -176,8 +176,8 @@ export default function HomePage() {
     return '*'.repeat(number.length - 4) + number.slice(-4);
   };
 
-  // Show landing page for first-time visitors
-  if (showLanding) {
+  // Show landing page for first-time visitors (only on client to prevent hydration mismatch)
+  if (typeof window !== 'undefined' && showLanding) {
     return <LandingPage onGetStarted={handleGetStarted} />;
   }
 
@@ -188,7 +188,7 @@ export default function HomePage() {
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
-      <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div className="container" style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{
           display: 'flex',
@@ -378,7 +378,7 @@ export default function HomePage() {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+            <div className="stack-sm" style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
               <button
                 type="submit"
                 disabled={isSubmitting || !formData.brand.trim() || !formData.number.trim()}
@@ -466,7 +466,7 @@ export default function HomePage() {
         </div>
 
         {/* Export/Import */}
-        <div style={{
+        <div className="stack-sm" style={{
           display: 'flex',
           gap: '15px',
           marginBottom: '40px',

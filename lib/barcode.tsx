@@ -67,8 +67,9 @@ export function Barcode({ data, type, size = 200, width, height }: BarcodeProps)
   if (!data) {
     return (
       <div style={{ 
-        width: size, 
-        height: size, 
+        width: '100%',
+        maxWidth: width ?? size,
+        height: type === 'qr' ? (width ?? size) : (height ?? Math.max(40, Math.floor((width ?? size) / 3))), 
         border: '1px dashed #ccc', 
         display: 'flex', 
         alignItems: 'center', 
@@ -84,12 +85,14 @@ export function Barcode({ data, type, size = 200, width, height }: BarcodeProps)
   const canvasHeight = type === 'qr' ? (width ?? size) : (height ?? Math.max(40, Math.floor((width ?? size) / 3)));
 
   return (
-    <div style={{ textAlign: 'center' }}>
+    <div style={{ textAlign: 'center', width: '100%' }}>
       <canvas
         ref={canvasRef}
         width={canvasWidth}
         height={canvasHeight}
         style={{ 
+          width: '100%',
+          height: 'auto',
           border: '1px solid #ddd',
           borderRadius: '4px',
           backgroundColor: '#fff'

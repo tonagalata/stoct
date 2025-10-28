@@ -40,6 +40,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       textAlign: 'center',
       padding: '20px',
+      paddingBottom: '120px',
       position: 'relative',
       overflow: 'hidden'
     }}>
@@ -102,6 +103,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           to {
             opacity: 1;
             transform: translateX(0);
+          }
+        }
+        @media (max-width: 640px) {
+          .lp-footer {
+            position: static !important;
+            margin-top: 24px;
           }
         }
       `}</style>
@@ -254,7 +261,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </button>
 
       {/* Privacy note with animation */}
-      <div style={{
+      <div className="lp-footer" style={{
         position: 'absolute',
         bottom: '30px',
         fontSize: '0.9rem',

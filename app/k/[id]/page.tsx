@@ -7,6 +7,7 @@ import { Card, CardInput } from '@/lib/types';
 import { getCard, updateCard } from '@/lib/storage';
 import { copyToClipboard } from '@/lib/clipboard';
 import { Barcode } from '@/lib/barcode';
+import { encryptJsonWithPin, encodeToUrlFragment } from '@/lib/crypto';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 
 interface CardPageProps {
@@ -141,6 +142,32 @@ export default function CardPage({ params }: CardPageProps) {
     setTimeout(() => setMessage(''), 3000);
   };
 
+  const handleSecureShare = async () => {
+    if (!card) return;
+    const pin = prompt('Create a PIN to protect this link (4+ characters):') || '';
+    if (!pin || pin.length < 4) {
+      alert('PIN must be at least 4 characters.');
+      return;
+    }
+    try {
+      const payload = await encryptJsonWithPin({
+        brand: card.brand,
+        number: card.number,
+        pin: card.pin,
+        notes: card.notes,
+        barcodeType: card.barcodeType || 'code128',
+      }, pin);
+      const fragment = encodeToUrlFragment(payload);
+      const url = `${window.location.origin}/s#${fragment}`;
+      await navigator.clipboard.writeText(url);
+      setMessage('Secure share link copied to clipboard!');
+      setTimeout(() => setMessage(''), 4000);
+    } catch (e) {
+      setMessage('Failed to create secure link.');
+      setTimeout(() => setMessage(''), 4000);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{
@@ -244,7 +271,7 @@ export default function CardPage({ params }: CardPageProps) {
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
-      <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="container" style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{
           display: 'flex',
@@ -268,7 +295,7 @@ export default function CardPage({ params }: CardPageProps) {
               Stoct - Card Details
             </h1>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="stack-sm" style={{ display: 'flex', gap: '10px' }}>
             <button
               onClick={() => router.push('/')}
               style={{
@@ -299,6 +326,23 @@ export default function CardPage({ params }: CardPageProps) {
                 }}
               >
                 ✏️ Edit Card
+              </button>
+            )}
+            {!isEditing && (
+              <button
+                onClick={handleSecureShare}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                🔗 Share Securely
               </button>
             )}
           </div>
