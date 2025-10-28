@@ -7,10 +7,14 @@ import JsBarcode from 'jsbarcode';
 interface BarcodeProps {
   data: string;
   type: 'qr' | 'code128';
+  // Back-compat: if provided, used as a general size
   size?: number;
+  // Preferred explicit sizing used by callers
+  width?: number;
+  height?: number;
 }
 
-export function Barcode({ data, type, size = 200 }: BarcodeProps) {
+export function Barcode({ data, type, size = 200, width, height }: BarcodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -26,8 +30,9 @@ export function Barcode({ data, type, size = 200 }: BarcodeProps) {
     try {
       if (type === 'qr') {
         // Generate QR code
+        const qrSize = width ?? size;
         QRCode.toCanvas(canvas, data, {
-          width: size,
+          width: qrSize,
           margin: 2,
           color: {
             dark: '#000000',
@@ -36,10 +41,12 @@ export function Barcode({ data, type, size = 200 }: BarcodeProps) {
         });
       } else if (type === 'code128') {
         // Generate Code 128 barcode
+        const barWidth = 2;
+        const targetHeight = height ?? Math.max(40, Math.floor((width ?? size) / 3));
         JsBarcode(canvas, data, {
           format: 'CODE128',
-          width: 2,
-          height: size / 3,
+          width: barWidth,
+          height: targetHeight,
           displayValue: true,
           fontSize: 14,
           margin: 10,
@@ -55,7 +62,7 @@ export function Barcode({ data, type, size = 200 }: BarcodeProps) {
       ctx.textAlign = 'center';
       ctx.fillText('Error generating barcode', canvas.width / 2, canvas.height / 2);
     }
-  }, [data, type, size]);
+  }, [data, type, size, width, height]);
 
   if (!data) {
     return (
@@ -73,12 +80,15 @@ export function Barcode({ data, type, size = 200 }: BarcodeProps) {
     );
   }
 
+  const canvasWidth = width ?? size;
+  const canvasHeight = type === 'qr' ? (width ?? size) : (height ?? Math.max(40, Math.floor((width ?? size) / 3)));
+
   return (
     <div style={{ textAlign: 'center' }}>
       <canvas
         ref={canvasRef}
-        width={size}
-        height={type === 'qr' ? size : size / 3}
+        width={canvasWidth}
+        height={canvasHeight}
         style={{ 
           border: '1px solid #ddd',
           borderRadius: '4px',

@@ -97,8 +97,8 @@ export default function CardPage({ params }: CardPageProps) {
         ...card,
         brand: editData.brand.trim(),
         number: editData.number.trim(),
-        pin: editData.pin.trim() || undefined,
-        notes: editData.notes.trim() || undefined,
+        pin: (editData.pin ?? '').trim() || undefined,
+        notes: (editData.notes ?? '').trim() || undefined,
         barcodeType: editData.barcodeType,
         updatedAt: Date.now(),
       };
