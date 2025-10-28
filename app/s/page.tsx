@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { decryptJsonWithPin, decodeFromUrlFragment, EncryptedPayload } from '@/lib/crypto';
+import { decryptJsonWithPin, decodeFromUrlFragment, EncryptedPayload, checkAndMarkTokenUsed } from '@/lib/crypto';
 import { createCard } from '@/lib/storage';
 
 export default function SecureSharePage() {
@@ -28,6 +28,13 @@ export default function SecureSharePage() {
   const handleDecrypt = async () => {
     if (!payload) return;
     setError('');
+    
+    // Check if token has already been used
+    if (!checkAndMarkTokenUsed(payload)) {
+      setError('This link has already been used and is no longer valid.');
+      return;
+    }
+    
     try {
       const data = await decryptJsonWithPin(payload, pin);
       setPreview(data);
@@ -88,6 +95,20 @@ export default function SecureSharePage() {
 
         {!payload && (
           <p style={{ margin: 0, color: '#b0b0b0' }}>This link is missing data.</p>
+        )}
+
+        {payload && error && error.includes('already been used') && (
+          <div style={{
+            background: 'rgba(244, 67, 54, 0.1)',
+            border: '1px solid rgba(244, 67, 54, 0.3)',
+            color: '#F44336',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            fontSize: '0.9rem'
+          }}>
+            ⚠️ This secure link has already been used and is no longer valid.
+          </div>
         )}
 
         {payload && step === 'enter' && (

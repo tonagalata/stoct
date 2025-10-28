@@ -150,6 +150,10 @@ export default function CardPage({ params }: CardPageProps) {
       return;
     }
     try {
+      if (!window.isSecureContext) {
+        throw new Error('SECURE_CONTEXT_REQUIRED');
+      }
+
       const payload = await encryptJsonWithPin({
         brand: card.brand,
         number: card.number,
@@ -159,11 +163,25 @@ export default function CardPage({ params }: CardPageProps) {
       }, pin);
       const fragment = encodeToUrlFragment(payload);
       const url = `${window.location.origin}/s#${fragment}`;
-      await navigator.clipboard.writeText(url);
-      setMessage('Secure share link copied to clipboard!');
+      try {
+        await navigator.clipboard.writeText(url);
+        setMessage('Secure share link copied to clipboard!');
+      } catch (clipErr) {
+        const manual = confirm('Copy link manually? Selecting OK will open a dialog with the link.');
+        if (manual) {
+          prompt('Copy this secure link:', url);
+          setMessage('Secure link ready to share.');
+        }
+      }
       setTimeout(() => setMessage(''), 4000);
-    } catch (e) {
-      setMessage('Failed to create secure link.');
+    } catch (e: any) {
+      if (e && e.message === 'SECURE_CONTEXT_REQUIRED') {
+        setMessage('Secure link requires HTTPS. Use Netlify domain or ngrok.');
+      } else if (typeof e?.message === 'string' && e.message.includes('Web Crypto')) {
+        setMessage('Secure link unavailable: Web Crypto not supported in this context.');
+      } else {
+        setMessage('Failed to create secure link.');
+      }
       setTimeout(() => setMessage(''), 4000);
     }
   };
@@ -332,14 +350,16 @@ export default function CardPage({ params }: CardPageProps) {
               <button
                 onClick={handleSecureShare}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  background: 'rgba(76, 175, 80, 0.2)',
+                  color: '#4CAF50',
+                  border: '1px solid rgba(76, 175, 80, 0.3)',
                   padding: '8px 16px',
                   borderRadius: '8px',
                   cursor: 'pointer',
                   fontSize: '0.9rem',
-                  transition: 'all 0.2s ease'
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 🔗 Share Securely

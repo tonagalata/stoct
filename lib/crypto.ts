@@ -7,6 +7,7 @@ export interface EncryptedPayload {
   s: string; // salt (base64)
   iv: string; // iv (base64)
   c: string; // ciphertext (base64)
+  t: string; // token (unique identifier for one-time use)
 }
 
 function getSubtle(): SubtleCrypto {
@@ -55,6 +56,7 @@ export async function encryptJsonWithPin(data: unknown, pin: string): Promise<En
   const subtle = getSubtle();
   const salt = window.crypto.getRandomValues(new Uint8Array(16));
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const token = window.crypto.getRandomValues(new Uint8Array(16));
   const key = await deriveKey(pin, salt);
   const plaintext = toBytes(JSON.stringify(data));
   const ciphertext = await subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
@@ -63,6 +65,7 @@ export async function encryptJsonWithPin(data: unknown, pin: string): Promise<En
     s: b64encode(salt),
     iv: b64encode(iv),
     c: b64encode(new Uint8Array(ciphertext)),
+    t: b64encode(token),
   };
 }
 
@@ -83,6 +86,32 @@ export function encodeToUrlFragment(obj: unknown): string {
 export function decodeFromUrlFragment(fragment: string): EncryptedPayload {
   const json = atob(decodeURIComponent(fragment.replace(/^#/, '')));
   return JSON.parse(json);
+}
+
+// One-time use token management
+const USED_TOKENS_KEY = 'stoct:used-tokens';
+
+export function isTokenUsed(token: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const usedTokens = JSON.parse(localStorage.getItem(USED_TOKENS_KEY) || '[]');
+  return usedTokens.includes(token);
+}
+
+export function markTokenAsUsed(token: string): void {
+  if (typeof window === 'undefined') return;
+  const usedTokens = JSON.parse(localStorage.getItem(USED_TOKENS_KEY) || '[]');
+  if (!usedTokens.includes(token)) {
+    usedTokens.push(token);
+    localStorage.setItem(USED_TOKENS_KEY, JSON.stringify(usedTokens));
+  }
+}
+
+export function checkAndMarkTokenUsed(payload: EncryptedPayload): boolean {
+  if (isTokenUsed(payload.t)) {
+    return false; // Already used
+  }
+  markTokenAsUsed(payload.t);
+  return true; // First time use
 }
 
 
