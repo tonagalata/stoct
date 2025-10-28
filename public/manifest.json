@@ -1,6 +1,6 @@
 {
-  "name": "shortKut - Card Manager",
-  "short_name": "shortKut",
+  "name": "Stoct - Card Manager",
+  "short_name": "Stoct",
   "description": "A simple card manager for storing card information locally",
   "start_url": "/",
   "display": "standalone",
@@ -8,7 +8,7 @@
   "theme_color": "#000000",
   "orientation": "portrait-primary",
   "scope": "/",
-  "id": "shortkut-card-manager",
+  "id": "stoct-card-manager",
   "icons": [
     {
       "src": "/icon-192.png",

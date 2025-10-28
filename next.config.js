@@ -4,7 +4,8 @@ const nextConfig = {
   // Netlify supports Next.js with serverless functions
   images: {
     unoptimized: true
-  }
+  },
+  outputFileTracingRoot: __dirname
 }
 
 module.exports = nextConfig

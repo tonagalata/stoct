@@ -3,13 +3,13 @@ import "./globals.css";
 import { ServiceWorkerProvider } from "@/components/ServiceWorkerProvider";
 
 export const metadata: Metadata = {
-  title: "shortKut - Card Manager",
+  title: "Stoct - Card Manager",
   description: "A simple card manager for storing card information locally",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "shortKut",
+    title: "Stoct",
   },
   icons: {
     icon: "/icon-192.png",
@@ -37,8 +37,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#000000" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="shortKut" />
+        <meta name="apple-mobile-web-app-title" content="Stoct" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="icon" href="/logo.png" />
       </head>
       <body>
         <ServiceWorkerProvider />

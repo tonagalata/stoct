@@ -1,10 +1,10 @@
-# shortKut - Your Personal Card Manager
+# Stoct - Your Personal Card Manager
 
 📱 **A simple, secure app to manage all your cards** - credit cards, loyalty cards, membership cards, and more. Everything stays private on your device.
 
-## ✨ What is shortKut?
+## ✨ What is Stoct?
 
-shortKut is a web app that helps you organize and manage all your card information in one place. Instead of carrying physical cards or storing sensitive info in notes apps, shortKut keeps everything secure and easily accessible on your phone or computer.
+Stoct is a web app that helps you organize and manage all your card information in one place. Instead of carrying physical cards or storing sensitive info in notes apps, Stoct keeps everything secure and easily accessible on your phone or computer.
 
 ## 🚀 Key Features
 
