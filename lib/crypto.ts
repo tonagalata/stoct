@@ -17,7 +17,9 @@ function getSubtle(): SubtleCrypto {
 }
 
 function toBytes(str: string): Uint8Array {
-  return new TextEncoder().encode(str);
+  const bytes = new TextEncoder().encode(str);
+  // Ensure we have a proper ArrayBuffer for Web Crypto API
+  return new Uint8Array(bytes.buffer.slice(0));
 }
 
 function fromBytes(buf: ArrayBuffer): string {
