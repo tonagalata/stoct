@@ -165,7 +165,7 @@ export default function CardPage({ params }: CardPageProps) {
         pin: card.pin,
         notes: card.notes,
         barcodeType: card.barcodeType || 'code128',
-      }, pin);
+      }, sharePin);
       const fragment = encodeToUrlFragment(payload);
       const url = `${window.location.origin}/s#${fragment}`;
       try {
