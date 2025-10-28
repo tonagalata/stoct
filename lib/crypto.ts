@@ -48,7 +48,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
   return subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: salt.buffer as ArrayBuffer,
       iterations: 100_000,
       hash: 'SHA-256',
     },
@@ -66,7 +66,7 @@ export async function encryptJsonWithPin(data: unknown, pin: string): Promise<En
   const token = window.crypto.getRandomValues(new Uint8Array(16));
   const key = await deriveKey(pin, salt);
   const plaintext = toBytes(JSON.stringify(data));
-  const ciphertext = await subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
+  const ciphertext = await subtle.encrypt({ name: 'AES-GCM', iv: iv.buffer as ArrayBuffer }, key, plaintext);
   return {
     v: 1,
     s: b64encode(salt),
@@ -82,7 +82,7 @@ export async function decryptJsonWithPin(payload: EncryptedPayload, pin: string)
   const iv = b64decode(payload.iv);
   const key = await deriveKey(pin, salt);
   const ciphertext = b64decode(payload.c);
-  const plaintext = await subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  const plaintext = await subtle.decrypt({ name: 'AES-GCM', iv: iv.buffer as ArrayBuffer }, key, ciphertext);
   return JSON.parse(fromBytes(plaintext));
 }
 
