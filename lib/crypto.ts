@@ -86,12 +86,12 @@ export async function decryptJsonWithPin(payload: EncryptedPayload, pin: string)
   return JSON.parse(fromBytes(plaintext));
 }
 
-export function encodeToUrlFragment(obj: unknown): string {
+export function encodeToUrlQuery(obj: unknown): string {
   return encodeURIComponent(btoa(JSON.stringify(obj)));
 }
 
-export function decodeFromUrlFragment(fragment: string): EncryptedPayload {
-  const json = atob(decodeURIComponent(fragment.replace(/^#/, '')));
+export function decodeFromUrlQuery(query: string): EncryptedPayload {
+  const json = atob(decodeURIComponent(query));
   return JSON.parse(json);
 }
 

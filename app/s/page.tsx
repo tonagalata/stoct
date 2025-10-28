@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { decryptJsonWithPin, decodeFromUrlFragment, EncryptedPayload, checkAndMarkTokenUsed } from '@/lib/crypto';
+import { decryptJsonWithPin, decodeFromUrlQuery, EncryptedPayload, checkAndMarkTokenUsed } from '@/lib/crypto';
 import { createCard } from '@/lib/storage';
 
 export default function SecureSharePage() {
@@ -15,10 +15,11 @@ export default function SecureSharePage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const hash = window.location.hash; // #<base64>
-    if (!hash) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const data = urlParams.get('data');
+    if (!data) return;
     try {
-      const p = decodeFromUrlFragment(hash);
+      const p = decodeFromUrlQuery(data);
       setPayload(p);
     } catch (e) {
       setError('Invalid link.');

@@ -7,7 +7,7 @@ import { Card, CardInput } from '@/lib/types';
 import { getCard, updateCard } from '@/lib/storage';
 import { copyToClipboard } from '@/lib/clipboard';
 import { Barcode } from '@/lib/barcode';
-import { encryptJsonWithPin, encodeToUrlFragment } from '@/lib/crypto';
+import { encryptJsonWithPin, encodeToUrlQuery } from '@/lib/crypto';
 import { useToast } from '@/components/ToastProvider';
 import { Modal } from '@/components/Modal';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
@@ -142,6 +142,23 @@ export default function CardPage({ params }: CardPageProps) {
     setShowScanner(false);
   };
 
+  const handleCopyShareLink = async () => {
+    if (!shareLink) return;
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      showToast('Link copied to clipboard!', 'success');
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = shareLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast('Link copied to clipboard!', 'success');
+    }
+  };
+
   const copyData = (text: string, label: string) => {
     copyToClipboard(text);
     setMessage(`${label} copied to clipboard!`);
@@ -166,8 +183,8 @@ export default function CardPage({ params }: CardPageProps) {
         notes: card.notes,
         barcodeType: card.barcodeType || 'code128',
       }, sharePin);
-      const fragment = encodeToUrlFragment(payload);
-      const url = `${window.location.origin}/s#${fragment}`;
+      const query = encodeToUrlQuery(payload);
+      const url = `${window.location.origin}/s?data=${query}`;
       try {
         await navigator.clipboard.writeText(url);
         setShareLink(url);
@@ -884,7 +901,37 @@ export default function CardPage({ params }: CardPageProps) {
               padding: '10px',
               wordBreak: 'break-all'
             }}>
-              {shareLink}
+              <div style={{ marginBottom: '8px', fontSize: '0.9rem', color: '#b0b0b0' }}>
+                Secure link generated:
+              </div>
+              <div style={{ 
+                background: 'rgba(0,0,0,0.3)', 
+                padding: '8px', 
+                borderRadius: '4px', 
+                fontFamily: 'monospace',
+                fontSize: '0.85rem',
+                wordBreak: 'break-all',
+                marginBottom: '8px'
+              }}>
+                {shareLink}
+              </div>
+              <button
+                onClick={handleCopyShareLink}
+                style={{
+                  background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                  width: '100%'
+                }}
+              >
+                📋 Copy Link
+              </button>
             </div>
           )}
         </div>
