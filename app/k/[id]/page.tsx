@@ -552,6 +552,18 @@ export default function CardDetailPage({ params }: CardDetailPageProps) {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              component="a"
+              href="https://ko-fi.com/stoct"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="contained"
+              color="secondary"
+              size="small"
+              sx={{ mr: 1, textTransform: 'none', fontWeight: 600 }}
+            >
+              Donate
+            </Button>
             <IconButton
               onClick={handleEdit}
               sx={{ color: 'text.primary' }}
