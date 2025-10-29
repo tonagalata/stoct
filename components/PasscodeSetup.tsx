@@ -174,7 +174,7 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
       PaperProps={{
         sx: {
           borderRadius: 3,
-          backgroundColor: '#ffffff',
+          backgroundColor: (t) => (t.palette.mode === 'dark' ? '#121212' : '#ffffff'),
           border: '1px solid',
           borderColor: 'divider'
         }
@@ -199,7 +199,7 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
         </IconButton>
       </DialogTitle>
 
-      <DialogContent>
+      <DialogContent sx={{ backgroundColor: (t) => (t.palette.mode === 'dark' ? '#121212' : '#ffffff') }}>
         {step === 'setup' ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
             <Alert severity="info" sx={{ mb: 2 }}>

@@ -62,11 +62,12 @@ export function PasscodeSettings({ open, onClose, onPasscodeChanged }: PasscodeS
       PaperProps={{
         sx: {
           borderRadius: 3,
-          backgroundColor: '#ffffff',
+          backgroundColor: (t) => (t.palette.mode === 'dark' ? '#121212' : '#ffffff'),
           border: '1px solid',
           borderColor: 'divider'
         }
       }}
+      BackdropProps={{ sx: { backgroundColor: 'rgba(0,0,0,0.9)' } }}
     >
       <DialogTitle
         sx={{
@@ -87,13 +88,13 @@ export function PasscodeSettings({ open, onClose, onPasscodeChanged }: PasscodeS
         </IconButton>
       </DialogTitle>
 
-      <DialogContent>
+      <DialogContent sx={{ backgroundColor: (t) => (t.palette.mode === 'dark' ? '#121212' : '#ffffff') }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
           <Paper
             elevation={0}
             sx={{
               p: 3,
-              backgroundColor: isPasscodeEnabled ? 'rgba(76, 175, 80, 0.05)' : 'rgba(244, 67, 54, 0.05)',
+              backgroundColor: (t) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'background.paper',
               border: '1px solid',
               borderColor: isPasscodeEnabled ? 'success.main' : 'error.main'
             }}
