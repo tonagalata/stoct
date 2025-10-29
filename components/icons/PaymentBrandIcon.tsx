@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import * as PaymentIcons from 'react-svg-credit-card-payment-icons';
 import { CardIssuerIcon } from './CardIssuerIcon';
 
 type IssuerKey =
@@ -16,36 +15,25 @@ type IssuerKey =
   | 'mir'
   | 'unknown';
 
-const mapToLibName: Record<IssuerKey, string> = {
-  visa: 'Visa',
-  mastercard: 'Mastercard',
-  amex: 'AmericanExpress',
-  discover: 'Discover',
-  diners: 'DinersClub',
-  jcb: 'JCB',
-  unionpay: 'UnionPay',
-  maestro: 'Maestro',
-  mir: 'Mir',
-  unknown: ''
+// Map issuer keys to local vendored SVG filenames (logo style)
+const mapToLocalLogo: Record<IssuerKey, string> = {
+  visa: 'visa.svg',
+  mastercard: 'mastercard.svg',
+  amex: 'amex.svg',
+  discover: 'discover.svg',
+  diners: 'diners.svg',
+  jcb: 'jcb.svg',
+  unionpay: 'unionpay.svg',
+  maestro: 'maestro.svg',
+  mir: 'mir.svg',
+  unknown: 'generic.svg'
 };
 
 export function PaymentBrandIcon({ issuer, size = 28 }: { issuer: IssuerKey; size?: number }) {
-  const compName = mapToLibName[issuer] || '';
-  // Prefer library component; fallback to inline icon if not found
-  const Comp = (PaymentIcons as any)[compName] || null;
-  if (Comp) {
-    // Prefer the library's non-flat/original logo style when available.
-    // Many libs accept one of these props; unknown props are safely ignored.
-    return (
-      <Comp 
-        width={size} 
-        height={size} 
-        variant="original" 
-        type="original" 
-        theme="original" 
-        format="logo"
-      />
-    );
+  const file = mapToLocalLogo[issuer] || mapToLocalLogo.unknown;
+  if (file) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={`/ccicons/logo/${file}`} width={size} height={size} alt={`${issuer} logo`} style={{ display: 'block' }} />;
   }
   return <CardIssuerIcon issuer={issuer} size={size} />;
 }
