@@ -3,40 +3,73 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Card } from '@/lib/types';
-import { getAllCards, createCard, removeCard, exportAllCards, importAllCards } from '@/lib/storage';
-import { Barcode } from '@/lib/barcode';
+import { Card, CardInput, CardType } from '@/lib/types';
+import { getAllCards, createCard, removeCard, exportAllCards, importAllCards, cleanupExpiredOTPs } from '@/lib/storage';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { InstallPrompt } from '@/components/InstallPrompt';
 import { LandingPage } from '@/components/LandingPage';
+import { PasscodeSettings } from '@/components/PasscodeSettings';
+import { CardForm } from '@/components/CardForm';
+import { CardDisplay } from '@/components/CardDisplay';
+import { 
+  Button, 
+  Grid,
+  Container, 
+  Paper, 
+  Typography, 
+  Box, 
+  AppBar,
+  Toolbar,
+  IconButton,
+  Fade,
+  Alert,
+  Snackbar,
+  Tooltip,
+  Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
+} from '@mui/material';
+import { 
+  QrCodeScanner as ScanIcon, 
+  Download as ExportIcon,
+  Upload as ImportIcon,
+  Refresh as RefreshIcon,
+  Security as SecurityIcon
+} from '@mui/icons-material';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function HomePage() {
   const [cards, setCards] = useState<Card[]>([]);
   const [isFirstVisit, setIsFirstVisit] = useState(true);
-  const [showLanding, setShowLanding] = useState(true);
+  const [showLanding, setShowLanding] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    brand: '',
-    number: '',
-    pin: '',
-    notes: '',
-    barcodeType: 'code128' as 'qr' | 'code128'
+  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'info'
   });
+  const [showInstallInfo, setShowInstallInfo] = useState(false);
+  const [showPasscodeSettings, setShowPasscodeSettings] = useState(false);
+  const [selectedCardType, setSelectedCardType] = useState<CardType | 'all'>('all');
 
   const router = useRouter();
 
   // Check for first visit and load cards
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hasVisited = localStorage.getItem('stoct-has-visited');
-      if (hasVisited) {
-        setIsFirstVisit(false);
-        setShowLanding(false);
-      }
-      
-      setCards(getAllCards());
+    const hasVisited = localStorage.getItem('stoct-has-visited');
+    if (hasVisited) {
+      setIsFirstVisit(false);
+      setShowLanding(false);
+    } else {
+      setShowLanding(true);
     }
+    
+    // Clean up expired OTPs
+    cleanupExpiredOTPs();
+    setCards(getAllCards());
   }, []);
 
   const handleGetStarted = () => {
@@ -45,32 +78,21 @@ export default function HomePage() {
     setIsFirstVisit(false);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  // Filter cards by type
+  const filteredCards = cards.filter(card => 
+    selectedCardType === 'all' || card.type === selectedCardType
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.brand.trim() || !formData.number.trim()) return;
-
+  const handleCardSubmit = (cardInput: CardInput) => {
     setIsSubmitting(true);
     try {
-      const newCard = createCard({
-        brand: formData.brand.trim(),
-        number: formData.number.trim(),
-        pin: formData.pin.trim() || undefined,
-        notes: formData.notes.trim() || undefined,
-        barcodeType: formData.barcodeType
-      });
-      
+      const newCard = createCard(cardInput);
       setCards(getAllCards());
-      setFormData({
-        brand: '',
-        number: '',
-        pin: '',
-        notes: '',
-        barcodeType: 'code128'
+      
+      setNotification({
+        open: true,
+        message: 'Card created successfully!',
+        severity: 'success'
       });
       
       router.push(`/k/${newCard.id}`);
@@ -78,7 +100,11 @@ export default function HomePage() {
       if (error.code === 'DUPLICATE_CARD') {
         router.push(`/k/${error.existingId}`);
       } else {
-        alert('Error creating card: ' + error.message);
+        setNotification({
+          open: true,
+          message: 'Error creating card: ' + error.message,
+          severity: 'error'
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -88,599 +114,525 @@ export default function HomePage() {
   const handleScan = (data: string) => {
     setShowScanner(false);
     
+    // Check for duplicate card number first (only for loyalty cards)
+    const existingCard = getAllCards().find(card => 
+      card.type === 'loyalty' && (card as any).number === data
+    );
+    if (existingCard) {
+      setNotification({
+        open: true,
+        message: 'This card already exists. Navigating to existing card.',
+        severity: 'info'
+      });
+      router.push(`/k/${existingCard.id}`);
+      return;
+    }
+
     // Try to extract brand from URL or common patterns
-    let brand = '';
-    let notes = '';
+    let detectedBrand = '';
+    let detectedNotes = '';
     
     if (data.startsWith('http')) {
       try {
         const url = new URL(data);
-        brand = url.hostname.replace('www.', '').split('.')[0];
-        notes = `Scanned from: ${data}`;
+        detectedBrand = url.hostname.replace('www.', '').split('.')[0];
+        detectedBrand = detectedBrand.charAt(0).toUpperCase() + detectedBrand.slice(1);
+        detectedNotes = `Scanned from: ${data}`;
       } catch {
-        brand = 'Scanned Card';
-        notes = data;
+        detectedBrand = '';
+        detectedNotes = data;
       }
     } else if (data.includes('@')) {
-      brand = 'Email Card';
-      notes = data;
-    } else {
-      brand = 'Scanned Card';
-      notes = data;
+      detectedBrand = 'Email';
+      detectedNotes = data;
     }
 
-    try {
-      const newCard = createCard({
-        brand: brand,
-        number: data,
-        notes: notes,
-        barcodeType: 'code128'
-      });
-      
-      setCards(getAllCards());
-      router.push(`/k/${newCard.id}`);
-    } catch (error: any) {
-      if (error.code === 'DUPLICATE_CARD') {
-        router.push(`/k/${error.existingId}`);
-      } else {
-        alert('Error creating card: ' + error.message);
-      }
-    }
+    // Create a loyalty card with scanned data
+    const loyaltyCardInput: CardInput = {
+      type: 'loyalty',
+      brand: detectedBrand || 'Scanned Card',
+      number: data,
+      notes: detectedNotes || undefined,
+      barcodeType: 'code128'
+    };
+
+    handleCardSubmit(loyaltyCardInput);
   };
 
   const handleCloseScanner = () => {
     setShowScanner(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this card?')) {
-      removeCard(id);
+  const handleDelete = (card: Card) => {
+    if (window.confirm('Are you sure you want to delete this card?')) {
+      removeCard(card.id);
       setCards(getAllCards());
+      setNotification({
+        open: true,
+        message: 'Card deleted successfully!',
+        severity: 'success'
+      });
     }
   };
 
-  const handleExport = () => {
-    const data = exportAllCards();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'stoct-export.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleCopy = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setNotification({
+          open: true,
+          message: `${fieldName} copied to clipboard!`,
+          severity: 'success'
+        });
+      })
+      .catch(() => {
+        setNotification({
+          open: true,
+          message: `Failed to copy ${fieldName}. Please try manually.`,
+          severity: 'error'
+        });
+      });
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleExport = () => {
+    try {
+      exportAllCards();
+      setNotification({
+        open: true,
+        message: 'Cards exported successfully!',
+        severity: 'success'
+      });
+    } catch (error: any) {
+      setNotification({
+        open: true,
+        message: 'Error exporting cards: ' + error.message,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setNotification({
+        open: true,
+        message: 'No file selected for import.',
+        severity: 'warning'
+      });
+      return;
+    }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (e) => {
       try {
-        const data = JSON.parse(event.target?.result as string);
-        importAllCards(data);
+        const json = e.target?.result as string;
+        importAllCards(json);
         setCards(getAllCards());
-        alert('Cards imported successfully!');
-      } catch (error) {
-        alert('Error importing cards: Invalid file format');
+        setNotification({
+          open: true,
+          message: 'Cards imported successfully!',
+          severity: 'success'
+        });
+      } catch (error: any) {
+        setNotification({
+          open: true,
+          message: 'Error importing cards: ' + error.message,
+          severity: 'error'
+        });
       }
     };
     reader.readAsText(file);
-    e.target.value = '';
   };
 
-  const maskNumber = (number: string) => {
-    if (number.length <= 4) return number;
-    return '*'.repeat(number.length - 4) + number.slice(-4);
-  };
-
-  // Show landing page for first-time visitors (only on client to prevent hydration mismatch)
-  if (typeof window !== 'undefined' && showLanding) {
+  // Show landing page for first-time visitors
+  if (showLanding) {
     return <LandingPage onGetStarted={handleGetStarted} />;
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)',
-      color: '#ffffff',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      <div className="container" style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '40px',
-          padding: '20px 0',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <Image src="/logo.png" alt="Stoct Logo" width={50} height={50} style={{ borderRadius: '12px' }} />
-            <h1 style={{
-              fontSize: '2rem',
-              fontWeight: '700',
-              margin: '0',
-              background: 'linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+      {/* Modern App Bar */}
+      <AppBar 
+        position="static" 
+        elevation={0}
+        sx={{ 
+          backgroundColor: 'transparent',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Image src="/logo.png" alt="Stoct Logo" width={40} height={40} style={{ borderRadius: '8px' }} />
+            <Typography variant="h5" component="h1" sx={{ fontWeight: 700, color: 'text.primary' }}>
               Stoct
-            </h1>
-          </div>
-          <button
-            onClick={() => {
-              localStorage.removeItem('stoct-has-visited');
-              setShowLanding(true);
-            }}
-            style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: '#ffffff',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            Show Landing
-          </button>
-        </div>
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
+              onClick={() => setShowPasscodeSettings(true)}
+              sx={{ color: 'text.primary' }}
+              title="Security Settings"
+            >
+              <SecurityIcon />
+            </IconButton>
+            <IconButton
+              onClick={() => {
+                localStorage.removeItem('stoct-has-visited');
+                setShowLanding(true);
+              }}
+              sx={{ color: 'text.primary' }}
+              title="Show Landing Page"
+            >
+              <RefreshIcon />
+            </IconButton>
+            <ThemeToggle />
+          </Box>
+        </Toolbar>
+      </AppBar>
 
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* PWA Install Prompt */}
-        <InstallPrompt />
+        <Grid container alignItems="center" mb={2}>
+          <InstallPrompt /> 
+          <Typography variant="caption" sx={{ color: 'text.primary' }}>
+            How to Install Stoct as an App
+          </Typography>
+        </Grid>
 
-        {/* New Card Form */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          padding: '30px',
-          marginBottom: '40px',
-          backdropFilter: 'blur(10px)',
-          overflow: 'hidden'
-        }}>
-          <h2 style={{
-            fontSize: '1.5rem',
-            fontWeight: '600',
-            margin: '0 0 20px 0',
-            color: '#ffffff'
-          }}>
-            Add New Card
-          </h2>
-          
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                  Brand *
-                </label>
-                <input
-                  type="text"
-                  name="brand"
-                  value={formData.brand}
-                  onChange={handleInputChange}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
-                    color: '#ffffff',
-                    fontSize: '1rem',
-                    outline: 'none'
-                  }}
-                  placeholder="e.g., Starbucks, Library Card"
-                />
-              </div>
-              
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                  Number *
-                </label>
-                <input
-                  type="text"
-                  name="number"
-                  value={formData.number}
-                  onChange={handleInputChange}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
-                    color: '#ffffff',
-                    fontSize: '1rem',
-                    outline: 'none'
-                  }}
-                  placeholder="Card number or ID"
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                  PIN (Optional)
-                </label>
-                <input
-                  type="text"
-                  name="pin"
-                  value={formData.pin}
-                  onChange={handleInputChange}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
-                    color: '#ffffff',
-                    fontSize: '1rem',
-                    outline: 'none'
-                  }}
-                  placeholder="PIN or password"
-                />
-              </div>
-              
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                  Barcode Type
-                </label>
-                <select
-                  name="barcodeType"
-                  value={formData.barcodeType}
-                  onChange={handleInputChange}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
-                    color: '#ffffff',
-                    fontSize: '1rem',
-                    outline: 'none'
-                  }}
+        {/* Card Type Filter */}
+        {cards.length > 0 && (
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Filter by type:
+              </Typography>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Card Type</InputLabel>
+                <Select
+                  value={selectedCardType}
+                  onChange={(e) => setSelectedCardType(e.target.value as CardType | 'all')}
+                  label="Card Type"
                 >
-                  <option value="code128">Code 128</option>
-                  <option value="qr">QR Code</option>
-                </select>
-              </div>
-            </div>
+                  <MenuItem value="all">All Cards ({cards.length})</MenuItem>
+                  <MenuItem value="loyalty">
+                    Loyalty Cards ({cards.filter(c => c.type === 'loyalty').length})
+                  </MenuItem>
+                  <MenuItem value="credit">
+                    Credit Cards ({cards.filter(c => c.type === 'credit').length})
+                  </MenuItem>
+                  <MenuItem value="otp">
+                    One-Time Passwords ({cards.filter(c => c.type === 'otp').length})
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Paper>
+        )}
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                Notes (Optional)
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleInputChange}
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  resize: 'vertical',
-                  fontFamily: 'inherit'
-                }}
-                placeholder="Additional notes or details"
-              />
-            </div>
-
-            <div className="stack-sm" style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-              <button
-                type="submit"
-                disabled={isSubmitting || !formData.brand.trim() || !formData.number.trim()}
-                style={{
-                  background: isSubmitting || !formData.brand.trim() || !formData.number.trim() 
-                    ? 'rgba(255, 255, 255, 0.1)' 
-                    : 'linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%)',
-                  color: isSubmitting || !formData.brand.trim() || !formData.number.trim() 
-                    ? 'rgba(255, 255, 255, 0.5)' 
-                    : '#000000',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  cursor: isSubmitting || !formData.brand.trim() || !formData.number.trim() ? 'not-allowed' : 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  transition: 'all 0.2s ease',
-                  flex: '1'
+        {/* Conditional rendering based on whether cards exist */}
+        {cards.length > 0 ? (
+          <>
+            {/* Cards List */}
+            <Fade in timeout={600}>
+              <Paper 
+                elevation={0}
+                sx={{ 
+                  p: 4, 
+                  mb: 4,
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 3,
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                 }}
               >
-                {isSubmitting ? 'Creating...' : 'Create Card'}
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setShowScanner(true)}
-                disabled={isSubmitting}
-                style={{
-                  background: 'rgba(33, 150, 243, 0.2)',
-                  color: '#2196F3',
-                  border: '1px solid rgba(33, 150, 243, 0.3)',
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                  <Typography variant="h4" component="h2" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                    Your Cards ({filteredCards.length})
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      onClick={handleExport}
+                      startIcon={<ExportIcon />}
+                      size="small"
+                      sx={{ 
+                        borderColor: 'success.main',
+                        color: 'success.main',
+                        '&:hover': {
+                          borderColor: 'success.light',
+                          backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        }
+                      }}
+                    >
+                      Export
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={() => document.getElementById('import-input')?.click()}
+                      startIcon={<ImportIcon />}
+                      size="small"
+                      sx={{ 
+                        borderColor: 'primary.main',
+                        color: 'primary.main',
+                        '&:hover': {
+                          borderColor: 'primary.light',
+                          backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        }
+                      }}
+                    >
+                      Import
+                    </Button>
+                    <input
+                      id="import-input"
+                      type="file"
+                      accept=".json"
+                      onChange={handleImport}
+                      style={{ display: 'none' }}
+                    />
+                  </Box>
+                </Box>
+                
+                <Grid container spacing={3}>
+                  {filteredCards.map((card) => (
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={card.id}>
+                      <CardDisplay
+                        card={card}
+                        onView={(card) => router.push(`/k/${card.id}`)}
+                        onDelete={handleDelete}
+                        onCopy={handleCopy}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Paper>
+            </Fade>
+
+            {/* Add New Card Form */}
+            <Fade in timeout={800}>
+              <Paper 
+                elevation={0}
+                data-form="add-card"
+                sx={{ 
+                  p: 3, 
+                  mb: 4, 
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 3,
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                 }}
               >
-                📷 Scan Barcode/QR
-              </button>
-            </div>
-          </form>
-        </div>
+                <Typography variant="h5" component="h2" sx={{ mb: 3, color: 'text.primary', fontWeight: 600 }}>
+                  Add New Card
+                </Typography>
+                
+                <CardForm 
+                  onSubmit={handleCardSubmit}
+                  isSubmitting={isSubmitting}
+                />
+                
+                {/* Scan button */}
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    onClick={() => setShowScanner(true)}
+                    disabled={isSubmitting}
+                    startIcon={<ScanIcon />}
+                    fullWidth
+                    sx={{ 
+                      minHeight: 48,
+                      px: 4,
+                      borderColor: 'primary.main',
+                      color: 'primary.main',
+                      fontWeight: 600,
+                      '&:hover': {
+                        borderColor: 'primary.light',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        transform: 'translateY(-1px)',
+                      },
+                      '&:disabled': {
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        color: 'rgba(255, 255, 255, 0.5)',
+                      }
+                    }}
+                  >
+                    Scan Barcode/QR Code
+                  </Button>
+                </Box>
+              </Paper>
+            </Fade>
+          </>
+        ) : (
+          <>
+            {/* Add New Card Form (shown first when no cards exist) */}
+            <Fade in timeout={600}>
+              <Paper 
+                elevation={0}
+                data-form="add-card"
+                sx={{ 
+                  p: 3, 
+                  mb: 4, 
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 3,
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                <Typography variant="h5" component="h2" sx={{ mb: 3, color: 'text.primary', fontWeight: 600 }}>
+                  Add New Card
+                </Typography>
+                
+                <CardForm 
+                  onSubmit={handleCardSubmit}
+                  isSubmitting={isSubmitting}
+                />
+                
+                {/* Scan button */}
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    onClick={() => setShowScanner(true)}
+                    disabled={isSubmitting}
+                    startIcon={<ScanIcon />}
+                    fullWidth
+                    sx={{ 
+                      minHeight: 48,
+                      px: 4,
+                      borderColor: 'primary.main',
+                      color: 'primary.main',
+                      fontWeight: 600,
+                      '&:hover': {
+                        borderColor: 'primary.light',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        transform: 'translateY(-1px)',
+                      },
+                      '&:disabled': {
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        color: 'rgba(255, 255, 255, 0.5)',
+                      }
+                    }}
+                  >
+                    Scan Barcode/QR Code
+                  </Button>
+                </Box>
+              </Paper>
+            </Fade>
 
-        {/* PWA Installation Instructions */}
-        <div style={{
-          background: 'rgba(76, 175, 80, 0.1)',
-          border: '1px solid rgba(76, 175, 80, 0.3)',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '40px'
-        }}>
-          <h3 style={{
-            fontSize: '1.2rem',
-            fontWeight: '600',
-            margin: '0 0 15px 0',
-            color: '#4CAF50',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            📱 Install as App
-          </h3>
-          <p style={{
-            margin: '0 0 15px 0',
-            color: '#e0e0e0',
-            lineHeight: '1.5'
-          }}>
-            Add Stoct to your home screen for a faster, app-like experience:
-          </p>
-          <ul style={{
-            margin: '0',
-            paddingLeft: '20px',
-            color: '#e0e0e0',
-            lineHeight: '1.6'
-          }}>
-            <li><strong>iPhone/iPad:</strong> Tap Share → "Add to Home Screen"</li>
-            <li><strong>Android:</strong> Tap menu (⋮) → "Add to Home screen"</li>
-            <li><strong>Desktop:</strong> Look for install icon in address bar</li>
-          </ul>
-        </div>
+            {/* Empty state for no cards */}
+            <Fade in timeout={800}>
+              <Paper 
+                elevation={0}
+                sx={{ 
+                  p: 4, 
+                  mb: 4,
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 3,
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <Typography variant="h1" sx={{ fontSize: '4rem', mb: 2 }}>
+                    💳
+                  </Typography>
+                  <Typography variant="h5" sx={{ mb: 1, color: 'text.primary' }}>
+                    No cards yet
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: 'text.primary' }}>
+                    Create your first card above or scan a barcode to get started
+                  </Typography>
+                </Box>
+              </Paper>
+            </Fade>
+          </>
+        )}
 
-        {/* Export/Import */}
-        <div className="stack-sm" style={{
-          display: 'flex',
-          gap: '15px',
-          marginBottom: '40px',
-          flexWrap: 'wrap'
-        }}>
-          <button
-            onClick={handleExport}
-            style={{
-              background: 'rgba(33, 150, 243, 0.2)',
-              color: '#2196F3',
-              border: '1px solid rgba(33, 150, 243, 0.3)',
-              padding: '12px 20px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
+        {/* PWA Installation Info */}
+        <Tooltip
+          title={
+            <Box sx={{ p: 1 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
+                Benefits of installing Stoct:
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                ⚡ Faster loading from home screen
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                📱 Works offline
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                🏠 Native app experience
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                Look for "Add to Home Screen" in your browser menu
+              </Typography>
+            </Box>
+          }
+          arrow
+          placement="top"
+          componentsProps={{
+            tooltip: {
+              sx: {
+                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                color: 'white',
+                maxWidth: 300,
+                fontSize: '0.875rem',
+                '& .MuiTooltip-arrow': {
+                  color: 'rgba(0, 0, 0, 0.9)',
+                },
+              },
+            },
+          }}
+        >
+          <Alert
+            severity="info"
+            sx={{
+              mb: 4,
+              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+              border: '1px solid rgba(33, 150, 243, 0.2)',
+              '& .MuiAlert-icon': {
+                color: 'primary.main'
+              },
+              '& .MuiAlert-message': {
+                color: 'text.primary'
+              }
             }}
           >
-            📤 Export All Cards
-          </button>
-          
-          <label style={{
-            background: 'rgba(76, 175, 80, 0.2)',
-            color: '#4CAF50',
-            border: '1px solid rgba(76, 175, 80, 0.3)',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            fontWeight: '500',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            📥 Import Cards
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              style={{ display: 'none' }}
-            />
-          </label>
-        </div>
-
-        {/* Cards List */}
-        <div>
-          <h2 style={{
-            fontSize: '1.8rem',
-            fontWeight: '600',
-            margin: '0 0 20px 0',
-            color: '#ffffff'
-          }}>
-            Your Cards ({cards.length})
-          </h2>
-          
-          {cards.length === 0 ? (
-            <div style={{
-              textAlign: 'center',
-              padding: '60px 20px',
-              color: '#b0b0b0'
-            }}>
-              <div style={{
-                fontSize: '4rem',
-                marginBottom: '20px'
-              }}>
-                💳
-              </div>
-              <h3 style={{
-                fontSize: '1.5rem',
-                margin: '0 0 10px 0',
-                color: '#e0e0e0'
-              }}>
-                No cards yet
-              </h3>
-              <p style={{
-                margin: '0',
-                fontSize: '1rem'
-              }}>
-                Create your first card above or scan a barcode to get started
-              </p>
-            </div>
-          ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: '20px'
-            }}>
-              {cards.map((card) => (
-                <div
-                  key={card.id}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '16px',
-                    padding: '20px',
-                    backdropFilter: 'blur(10px)',
-                    transition: 'all 0.2s ease'
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="body2" sx={{ color: 'text.primary' }}>
+                📱 <strong>Install Stoct as an App!</strong> Add to your home screen for a better experience.
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <InstallPrompt showInfoIcon={false} />
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={() => setShowInstallInfo(true)}
+                  sx={{
+                    backgroundColor: 'success.main',
+                    '&:hover': {
+                      backgroundColor: 'success.dark',
+                    }
                   }}
                 >
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '15px'
-                  }}>
-                    <h3 style={{
-                      fontSize: '1.2rem',
-                      fontWeight: '600',
-                      margin: '0',
-                      color: '#ffffff'
-                    }}>
-                      {card.brand}
-                    </h3>
-                    <div style={{
-                      fontSize: '0.8rem',
-                      color: '#b0b0b0',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      padding: '4px 8px',
-                      borderRadius: '6px'
-                    }}>
-                      {card.barcodeType || 'Code 128'}
-                    </div>
-                  </div>
-                  
-                  <div style={{
-                    fontSize: '1rem',
-                    color: '#e0e0e0',
-                    marginBottom: '15px',
-                    fontFamily: 'monospace',
-                    letterSpacing: '1px'
-                  }}>
-                    {maskNumber(card.number)}
-                  </div>
-                  
-                  <div style={{
-                    marginBottom: '15px',
-                    display: 'flex',
-                    justifyContent: 'center'
-                  }}>
-                    <Barcode
-                      data={card.number}
-                      type={card.barcodeType || 'code128'}
-                      width={200}
-                      height={60}
-                    />
-                  </div>
-                  
-                  <div style={{
-                    display: 'flex',
-                    gap: '10px'
-                  }}>
-                    <button
-                      onClick={() => router.push(`/k/${card.id}`)}
-                      style={{
-                        background: 'rgba(33, 150, 243, 0.2)',
-                        color: '#2196F3',
-                        border: '1px solid rgba(33, 150, 243, 0.3)',
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        fontWeight: '500',
-                        transition: 'all 0.2s ease',
-                        flex: '1'
-                      }}
-                    >
-                      Open
-                    </button>
-                    
-                    <button
-                      onClick={() => navigator.clipboard.writeText(card.number)}
-                      style={{
-                        background: 'rgba(76, 175, 80, 0.2)',
-                        color: '#4CAF50',
-                        border: '1px solid rgba(76, 175, 80, 0.3)',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        fontWeight: '500',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      Copy
-                    </button>
-                    
-                    <button
-                      onClick={() => handleDelete(card.id)}
-                      style={{
-                        background: 'rgba(244, 67, 54, 0.2)',
-                        color: '#F44336',
-                        border: '1px solid rgba(244, 67, 54, 0.3)',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        fontWeight: '500',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+                  Learn More
+                </Button>
+              </Box>
+            </Box>
+          </Alert>
+        </Tooltip>
+
+      </Container>
 
       {/* Scanner Modal */}
       {showScanner && (
@@ -689,6 +641,40 @@ export default function HomePage() {
           onClose={handleCloseScanner}
         />
       )}
-    </div>
+
+      {/* Install Info Dialog */}
+      {showInstallInfo && (
+        <InstallPrompt
+          showInfoIcon={true}
+          forceShowDialog={true}
+          onClose={() => setShowInstallInfo(false)}
+        />
+      )}
+
+      {/* Passcode Settings Dialog */}
+      <PasscodeSettings
+        open={showPasscodeSettings}
+        onClose={() => setShowPasscodeSettings(false)}
+        onPasscodeChanged={() => {
+          window.location.reload();
+        }}
+      />
+
+      {/* Notification System */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={4000}
+        onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }

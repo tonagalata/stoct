@@ -110,6 +110,29 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             position: static !important;
             margin-top: 24px;
           }
+          
+          .cta-button {
+            padding: 18px 30px !important;
+            font-size: 1.2rem !important;
+            min-height: 56px !important;
+            width: 100% !important;
+            max-width: 280px !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .cta-button {
+            padding: 16px 24px !important;
+            font-size: 1.1rem !important;
+            min-height: 52px !important;
+            max-width: 260px !important;
+          }
+        }
+        
+        /* Ensure button doesn't get squished */
+        .cta-button {
+          white-space: nowrap !important;
+          overflow: hidden !important;
         }
       `}</style>
 
@@ -221,14 +244,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         ))}
       </div>
 
-      {/* CTA Button with enhanced animation */}
+      {/* CTA Button with enhanced animation - Mobile friendly */}
       <button
         onClick={onGetStarted}
+        className="cta-button"
         style={{
           background: 'linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%)',
           color: '#000000',
           border: 'none',
-          padding: '18px 40px',
+          padding: '20px 40px',
           borderRadius: '12px',
           cursor: 'pointer',
           fontSize: '1.3rem',
@@ -237,10 +261,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           transition: 'all 0.3s ease',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'center',
           gap: '12px',
           animation: isVisible ? 'fadeInUp 1s ease-out 0.8s both' : 'none',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          minHeight: '60px', // Touch-friendly
+          minWidth: '200px', // Prevent squishing
+          width: '100%',
+          maxWidth: '300px'
         }}
         onMouseOver={(e) => {
           e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
@@ -251,7 +280,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           e.currentTarget.style.boxShadow = '0 10px 30px rgba(255, 255, 255, 0.2)';
         }}
       >
-        <span>Get Started</span>
+        <span>🚀 Get Started</span>
         <span style={{ 
           fontSize: '1.5rem',
           transition: 'transform 0.3s ease'

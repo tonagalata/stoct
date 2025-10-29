@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shortkut-v1';
+const CACHE_NAME = 'Stoct-v1';
 const urlsToCache = [
   '/',
   '/manifest.json',

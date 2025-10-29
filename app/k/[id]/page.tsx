@@ -11,6 +11,43 @@ import { encryptJsonWithPin, encodeToUrlQuery } from '@/lib/crypto';
 import { useToast } from '@/components/ToastProvider';
 import { Modal } from '@/components/Modal';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
+import { 
+  TextField, 
+  Button, 
+  Container, 
+  Paper, 
+  Typography, 
+  Box, 
+  IconButton,
+  Chip,
+  FormControl,
+  FormLabel,
+  InputLabel,
+  Select,
+  MenuItem,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  AppBar,
+  Toolbar,
+  Fade,
+  Alert,
+  Snackbar
+} from '@mui/material';
+import { 
+  Edit as EditIcon, 
+  QrCodeScanner as ScanIcon, 
+  ContentCopy as CopyIcon, 
+  Share as ShareIcon,
+  ArrowBack as BackIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon
+} from '@mui/icons-material';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface CardPageProps {
   params: Promise<{
@@ -306,90 +343,84 @@ export default function CardPage({ params }: CardPageProps) {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)',
-      color: '#ffffff',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      <div className="container" style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '30px',
-          padding: '20px 0',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          animation: isVisible ? 'fadeInDown 0.6s ease-out' : 'none'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <Image src="/logo.png" alt="Stoct Logo" width={50} height={50} style={{ borderRadius: '12px' }} />
-            <h1 style={{
-              fontSize: '2rem',
-              fontWeight: '700',
-              margin: '0',
-              background: 'linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
-              Stoct - Card Details
-            </h1>
-          </div>
-          <div className="stack-sm" style={{ display: 'flex', gap: '10px' }}>
-            <button
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+      {/* Modern App Bar */}
+      <AppBar 
+        position="static" 
+        elevation={0}
+        sx={{ 
+          backgroundColor: 'transparent',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Image src="/logo.png" alt="Stoct Logo" width={40} height={40} style={{ borderRadius: '8px' }} />
+            <Typography variant="h5" component="h1" sx={{ fontWeight: 700, color: 'text.primary' }}>
+              Card Details
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {!isEditing && (
+              <>
+                <Button
+                  variant="outlined"
+                  onClick={handleEdit}
+                  startIcon={<EditIcon />}
+                  size="small"
+                  sx={{ 
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                    '&:hover': {
+                      borderColor: 'primary.light',
+                      backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    }
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => setShareOpen(true)}
+                  startIcon={<ShareIcon />}
+                  size="small"
+                  sx={{ 
+                    borderColor: 'success.main',
+                    color: 'success.main',
+                    '&:hover': {
+                      borderColor: 'success.light',
+                      backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    }
+                  }}
+                >
+                  Share
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outlined"
               onClick={() => router.push('/')}
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                transition: 'all 0.2s ease'
+              startIcon={<BackIcon />}
+              size="small"
+              sx={{ 
+                borderColor: 'text.secondary',
+                color: 'text.primary',
+                '&:hover': {
+                  borderColor: 'text.primary',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                }
               }}
             >
-              ← Back to Home
-            </button>
-            {!isEditing && (
-              <button
-                onClick={handleEdit}
-                style={{
-                  background: 'rgba(33, 150, 243, 0.2)',
-                  color: '#2196F3',
-                  border: '1px solid rgba(33, 150, 243, 0.3)',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                ✏️ Edit Card
-              </button>
-            )}
-            {!isEditing && (
-              <button
-                onClick={() => setShareOpen(true)}
-                style={{
-                  background: 'rgba(76, 175, 80, 0.2)',
-                  color: '#4CAF50',
-                  border: '1px solid rgba(76, 175, 80, 0.3)',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  fontWeight: '600',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                🔗 Share Securely
-              </button>
-            )}
-          </div>
-        </div>
+              Back
+            </Button>
+            <ThemeToggle />
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      <Container maxWidth="md" sx={{ py: 4 }}>
 
         {/* Message */}
         {message && (
@@ -408,462 +439,442 @@ export default function CardPage({ params }: CardPageProps) {
         )}
 
         {/* Card Details */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '20px',
-          padding: '30px',
-          marginBottom: '30px',
-          backdropFilter: 'blur(10px)',
-          overflow: 'hidden',
-          animation: isVisible ? 'fadeInUp 0.6s ease-out 0.2s both' : 'none'
-        }}>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4, 
+            mb: 4, 
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 3,
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}
+        >
           {isEditing ? (
-            /* Edit Form */
-            <div>
-              <h2 style={{
-                fontSize: '1.5rem',
-                fontWeight: '600',
-                margin: '0 0 25px 0',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
-                ✏️ Edit Card
-              </h2>
+            /* Edit Form - MUI */
+            <Box>
+              <Typography variant="h4" component="h2" sx={{ mb: 3, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <EditIcon /> Edit Card
+              </Typography>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                      Brand *
-                    </label>
-                    <input
-                      type="text"
-                      name="brand"
-                      value={editData.brand}
+              <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <TextField
+                    fullWidth
+                    label="Brand"
+                    name="brand"
+                    value={editData.brand}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter card brand"
+                    variant="outlined"
+                  />
+                  
+                  <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                    <TextField
+                      fullWidth
+                      label="Number"
+                      name="number"
+                      value={editData.number}
                       onChange={handleInputChange}
                       required
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '1rem',
-                        outline: 'none'
-                      }}
+                      placeholder="Enter card number"
+                      variant="outlined"
+                      sx={{ flex: 1 }}
                     />
-                  </div>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setShowScanner(true)}
+                      startIcon={<ScanIcon />}
+                      sx={{ 
+                        minWidth: { xs: '100%', sm: 'auto' },
+                        minHeight: 56,
+                        borderColor: 'primary.main',
+                        color: 'primary.main',
+                        '&:hover': {
+                          borderColor: 'primary.light',
+                          backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        }
+                      }}
+                    >
+                      Scan Barcode
+                    </Button>
+                  </Box>
                   
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                      Number *
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <input
-                        type="text"
-                        name="number"
-                        value={editData.number}
-                        onChange={handleInputChange}
-                        required
-                        style={{
-                          flex: '1',
-                          padding: '12px 16px',
-                          background: 'rgba(255, 255, 255, 0.1)',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          borderRadius: '8px',
-                          color: '#ffffff',
-                          fontSize: '1rem',
-                          outline: 'none'
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowScanner(true)}
-                        style={{
-                          background: 'rgba(33, 150, 243, 0.2)',
-                          color: '#2196F3',
-                          border: '1px solid rgba(33, 150, 243, 0.3)',
-                          padding: '12px',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          fontSize: '1rem',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        📷 Scan
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                      PIN (Optional)
-                    </label>
-                    <input
-                      type="text"
+                  <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                    <TextField
+                      fullWidth
+                      label="PIN (Optional)"
                       name="pin"
                       value={editData.pin}
                       onChange={handleInputChange}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '1rem',
-                        outline: 'none'
-                      }}
+                      placeholder="Enter PIN"
+                      variant="outlined"
                     />
-                  </div>
+                    
+                    <FormControl component="fieldset">
+                      <FormLabel component="legend" sx={{ mb: 1, color: 'text.primary', fontSize: '0.875rem' }}>
+                        Barcode Type
+                      </FormLabel>
+                      <RadioGroup
+                        row
+                        name="barcodeType"
+                        value={editData.barcodeType}
+                        onChange={(e) => setEditData(prev => ({ ...prev, barcodeType: e.target.value as 'qr' | 'code128' }))}
+                      >
+                        <FormControlLabel 
+                          value="code128" 
+                          control={<Radio size="small" />} 
+                          label="Code 128"
+                          sx={{ 
+                            '& .MuiFormControlLabel-label': { 
+                              fontSize: '0.875rem',
+                              color: 'text.primary'
+                            }
+                          }}
+                        />
+                        <FormControlLabel 
+                          value="qr" 
+                          control={<Radio size="small" />} 
+                          label="QR Code"
+                          sx={{ 
+                            '& .MuiFormControlLabel-label': { 
+                              fontSize: '0.875rem',
+                              color: 'text.primary'
+                            }
+                          }}
+                        />
+                      </RadioGroup>
+                    </FormControl>
+                  </Box>
                   
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                      Barcode Type
-                    </label>
-                    <select
-                      name="barcodeType"
-                      value={editData.barcodeType}
-                      onChange={handleInputChange}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '1rem',
-                        outline: 'none'
-                      }}
-                    >
-                      <option value="code128">Code 128</option>
-                      <option value="qr">QR Code</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                    Notes (Optional)
-                  </label>
-                  <textarea
+                  <TextField
+                    fullWidth
+                    label="Notes (Optional)"
                     name="notes"
                     value={editData.notes}
                     onChange={handleInputChange}
-                    rows={3}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '8px',
-                      color: '#ffffff',
-                      fontSize: '1rem',
-                      outline: 'none',
-                      resize: 'vertical',
-                      fontFamily: 'inherit'
-                    }}
+                    placeholder="Add any additional notes about this card"
+                    variant="outlined"
+                    multiline
+                    rows={4}
                   />
-                </div>
+                </Box>
 
-                <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={handleCancelEdit}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      color: '#ffffff',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      padding: '12px 24px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '1rem',
-                      fontWeight: '500',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
+                {/* Action Buttons */}
+                <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, mt: 2 }}>
+                  <Button
+                    variant="contained"
                     onClick={handleSave}
                     disabled={isSubmitting || !editData.brand.trim() || !editData.number.trim()}
-                    style={{
-                      background: isSubmitting || !editData.brand.trim() || !editData.number.trim()
-                        ? 'rgba(255, 255, 255, 0.1)'
-                        : 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                      color: isSubmitting || !editData.brand.trim() || !editData.number.trim()
-                        ? 'rgba(255, 255, 255, 0.5)'
-                        : '#ffffff',
-                      border: 'none',
-                      padding: '12px 24px',
-                      borderRadius: '8px',
-                      cursor: isSubmitting || !editData.brand.trim() || !editData.number.trim() ? 'not-allowed' : 'pointer',
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      transition: 'all 0.2s ease'
+                    startIcon={<SaveIcon />}
+                    sx={{ 
+                      flex: { xs: 1, sm: 1 },
+                      minHeight: 48,
+                      backgroundColor: 'success.main',
+                      '&:hover': {
+                        backgroundColor: 'success.dark',
+                      },
+                      '&:disabled': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.5)',
+                      }
                     }}
                   >
                     {isSubmitting ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </div>
-            </div>
+                  </Button>
+                  
+                  <Button
+                    variant="outlined"
+                    onClick={handleCancelEdit}
+                    startIcon={<CancelIcon />}
+                    sx={{ 
+                      flex: { xs: 1, sm: 1 },
+                      minHeight: 48,
+                      borderColor: 'text.secondary',
+                      color: 'text.primary',
+                      '&:hover': {
+                        borderColor: 'text.primary',
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      }
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Box>
+              </Box>
+            </Box>
           ) : (
-            /* View Mode */
-            <div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '25px'
-              }}>
-                <h2 style={{
-                  fontSize: '1.8rem',
-                  fontWeight: '700',
-                  margin: '0',
-                  color: '#ffffff'
-                }}>
-                  {card.brand}
-                </h2>
-                <div style={{
-                  fontSize: '0.9rem',
-                  color: '#b0b0b0',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  padding: '6px 12px',
-                  borderRadius: '20px'
-                }}>
-                  {card.barcodeType || 'Code 128'}
-                </div>
-              </div>
+            /* View Mode - MUI */
+            <Fade in timeout={600}>
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                  <Typography variant="h4" component="h2" sx={{ color: 'text.primary', fontWeight: 700 }}>
+                    {card.brand}
+                  </Typography>
+                  <Chip 
+                    label={card.barcodeType || 'Code 128'} 
+                    sx={{ 
+                      backgroundColor: 'rgba(33, 150, 243, 0.2)',
+                      color: 'primary.main',
+                      fontWeight: 600
+                    }}
+                  />
+                </Box>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Card Number */}
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                    Card Number
-                  </label>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '15px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '10px'
-                  }}>
-                    <span style={{
-                      fontSize: '1.2rem',
-                      fontFamily: 'monospace',
-                      letterSpacing: '2px',
-                      color: '#ffffff',
-                      flex: '1'
-                    }}>
-                      {card.number}
-                    </span>
-                    <button
-                      onClick={() => copyData(card.number, 'Card number')}
-                      style={{
-                        background: 'rgba(33, 150, 243, 0.2)',
-                        color: '#2196F3',
-                        border: '1px solid rgba(33, 150, 243, 0.3)',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        fontWeight: '500',
-                        transition: 'all 0.2s ease'
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {/* Card Number */}
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>
+                      Card Number
+                    </Typography>
+                    <Paper 
+                      elevation={0}
+                      sx={{ 
+                        p: 2, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 2,
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 2
                       }}
                     >
-                      Copy
-                    </button>
-                  </div>
-                </div>
-
-                {/* PIN */}
-                {card.pin && (
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                      PIN
-                    </label>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '15px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '10px'
-                    }}>
-                      <span style={{
-                        fontSize: '1.2rem',
-                        fontFamily: 'monospace',
-                        letterSpacing: '2px',
-                        color: '#ffffff',
-                        flex: '1'
-                      }}>
-                        {card.pin}
-                      </span>
-                      <button
-                        onClick={() => copyData(card.pin!, 'PIN')}
-                        style={{
-                          background: 'rgba(76, 175, 80, 0.2)',
-                          color: '#4CAF50',
-                          border: '1px solid rgba(76, 175, 80, 0.3)',
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          fontWeight: '500',
-                          transition: 'all 0.2s ease'
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
+                          fontFamily: 'monospace',
+                          letterSpacing: '2px',
+                          color: 'text.primary',
+                          flex: 1,
+                          fontSize: '1.1rem'
+                        }}
+                      >
+                        {card.number}
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        onClick={() => copyData(card.number, 'Card number')}
+                        startIcon={<CopyIcon />}
+                        size="small"
+                        sx={{ 
+                          borderColor: 'primary.main',
+                          color: 'primary.main',
+                          '&:hover': {
+                            borderColor: 'primary.light',
+                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                          }
                         }}
                       >
                         Copy
-                      </button>
-                    </div>
-                  </div>
-                )}
+                      </Button>
+                    </Paper>
+                  </Box>
 
-                {/* Notes */}
-                {card.notes && (
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#e0e0e0' }}>
-                      Notes
-                    </label>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '10px',
-                      padding: '15px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '10px'
-                    }}>
-                      <span style={{
-                        fontSize: '1rem',
-                        color: '#e0e0e0',
-                        flex: '1',
-                        lineHeight: '1.5'
-                      }}>
-                        {card.notes}
-                      </span>
-                      <button
-                        onClick={() => copyData(card.notes!, 'Notes')}
-                        style={{
-                          background: 'rgba(255, 193, 7, 0.2)',
-                          color: '#FFC107',
-                          border: '1px solid rgba(255, 193, 7, 0.3)',
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          fontWeight: '500',
-                          transition: 'all 0.2s ease'
+                  {/* PIN */}
+                  {card.pin && (
+                    <Box>
+                      <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>
+                        PIN
+                      </Typography>
+                      <Paper 
+                        elevation={0}
+                        sx={{ 
+                          p: 2, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 2,
+                          background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(76, 175, 80, 0.05))',
+                          border: '1px solid',
+                          borderColor: 'success.main',
+                          borderRadius: 2
                         }}
                       >
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-                )}
+                        <Typography 
+                          variant="h6" 
+                          sx={{ 
+                            fontFamily: 'monospace',
+                            letterSpacing: '2px',
+                            color: 'text.primary',
+                            flex: 1,
+                            fontSize: '1.1rem'
+                          }}
+                        >
+                          {card.pin}
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          onClick={() => copyData(card.pin!, 'PIN')}
+                          startIcon={<CopyIcon />}
+                          size="small"
+                          sx={{ 
+                            borderColor: 'success.main',
+                            color: 'success.main',
+                            '&:hover': {
+                              borderColor: 'success.light',
+                              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            }
+                          }}
+                        >
+                          Copy
+                        </Button>
+                      </Paper>
+                    </Box>
+                  )}
 
-                {/* Barcode Section */}
-                <div>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '15px'
-                  }}>
-                    <label style={{ fontSize: '0.9rem', color: '#e0e0e0' }}>
-                      Barcode
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => setShowScanner(true)}
-                        style={{
-                          background: 'rgba(33, 150, 243, 0.2)',
-                          color: '#2196F3',
-                          border: '1px solid rgba(33, 150, 243, 0.3)',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: '500',
-                          transition: 'all 0.2s ease'
+                  {/* Notes */}
+                  {card.notes && (
+                    <Box>
+                      <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>
+                        Notes
+                      </Typography>
+                      <Paper 
+                        elevation={0}
+                        sx={{ 
+                          p: 2,
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 2,
+                          background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05))',
+                          border: '1px solid',
+                          borderColor: 'warning.main',
+                          borderRadius: 2
                         }}
                       >
-                        📷 Scan
-                      </button>
-                      <button
-                        onClick={() => copyData(card.number, 'Barcode data')}
-                        style={{
-                          background: 'rgba(76, 175, 80, 0.2)',
-                          color: '#4CAF50',
-                          border: '1px solid rgba(76, 175, 80, 0.3)',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: '500',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        Copy Data
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    padding: '20px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '12px'
-                  }}>
-                    <Barcode
-                      data={card.number}
-                      type={card.barcodeType || 'code128'}
-                      width={300}
-                      height={80}
-                    />
-                  </div>
-                </div>
+                        <Typography 
+                          variant="body1" 
+                          sx={{ 
+                            color: 'text.primary',
+                            flex: 1,
+                            lineHeight: 1.5
+                          }}
+                        >
+                          {card.notes}
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          onClick={() => copyData(card.notes!, 'Notes')}
+                          startIcon={<CopyIcon />}
+                          size="small"
+                          sx={{ 
+                            borderColor: 'warning.main',
+                            color: 'warning.main',
+                            '&:hover': {
+                              borderColor: 'warning.light',
+                              backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                            }
+                          }}
+                        >
+                          Copy
+                        </Button>
+                      </Paper>
+                    </Box>
+                  )}
 
-                {/* Card Info */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '15px',
-                  padding: '15px',
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  borderRadius: '10px',
-                  fontSize: '0.85rem',
-                  color: '#b0b0b0'
-                }}>
-                  <div>
-                    <strong>Created:</strong> {new Date(card.createdAt).toLocaleDateString()}
-                  </div>
-                  <div>
-                    <strong>Updated:</strong> {new Date(card.updatedAt).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            </div>
+                  {/* Barcode Section */}
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                        Barcode
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => setShowScanner(true)}
+                          startIcon={<ScanIcon />}
+                          size="small"
+                          sx={{ 
+                            borderColor: 'primary.main',
+                            color: 'primary.main',
+                            '&:hover': {
+                              borderColor: 'primary.light',
+                              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                            }
+                          }}
+                        >
+                          Scan
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          onClick={() => copyData(card.number, 'Barcode data')}
+                          startIcon={<CopyIcon />}
+                          size="small"
+                          sx={{ 
+                            borderColor: 'success.main',
+                            color: 'success.main',
+                            '&:hover': {
+                              borderColor: 'success.light',
+                              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            }
+                          }}
+                        >
+                          Copy Data
+                        </Button>
+                      </Box>
+                    </Box>
+                    
+                    <Paper 
+                      elevation={0}
+                      sx={{ 
+                        p: 3,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 3
+                      }}
+                    >
+                      <Barcode
+                        data={card.number}
+                        type={card.barcodeType || 'code128'}
+                        width={300}
+                        height={80}
+                      />
+                    </Paper>
+                  </Box>
+
+                  {/* Card Info */}
+                  <Paper 
+                    elevation={0}
+                    sx={{ 
+                      p: 2,
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 2,
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01))',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      fontSize: '0.85rem',
+                      color: 'text.primary'
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        Created: {new Date(card.createdAt).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        Updated: {new Date(card.updatedAt).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </Box>
+              </Box>
+            </Fade>
           )}
-        </div>
-      </div>
+        </Paper>
+      </Container>
 
       {/* Share modal */}
       <Modal open={shareOpen} title="Share Card Securely" onClose={() => setShareOpen(false)}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <label style={{ fontSize: '0.9rem', color: '#e0e0e0' }}>Enter a PIN (4+ characters)</label>
+              <Typography variant="body2" sx={{ color: 'text.primary', mb: 1 }}>Enter a PIN (4+ characters)</Typography>
           <input
             type="password"
             value={sharePin}
@@ -976,7 +987,73 @@ export default function CardPage({ params }: CardPageProps) {
             transform: translateY(0);
           }
         }
+        
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+          .container {
+            padding: 16px !important;
+          }
+          
+          /* Header buttons - stack on mobile */
+          .header-buttons {
+            flex-direction: column !important;
+            width: 100% !important;
+          }
+          
+          .header-buttons > div {
+            width: 100% !important;
+          }
+          
+          /* Make scan button full width on mobile */
+          .scan-button-container {
+            flex-direction: column !important;
+          }
+          
+          .scan-button-container button {
+            width: 100% !important;
+            margin-top: 8px;
+          }
+          
+          /* Make PIN and Barcode Type stack on very small screens */
+          .responsive-grid {
+            grid-template-columns: 1fr !important;
+          }
+          
+          /* Improve button spacing on mobile */
+          .action-buttons {
+            gap: 8px !important;
+          }
+          
+          /* Better touch targets */
+          input, textarea, select, button {
+            min-height: 48px !important;
+          }
+        }
+        
+        @media (min-width: 769px) {
+          /* Desktop: header buttons in a row */
+          .header-buttons {
+            flex-direction: row !important;
+            align-items: center !important;
+          }
+          
+          .header-buttons > div {
+            flex-direction: row !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          /* Extra small screens */
+          .container {
+            padding: 12px !important;
+          }
+          
+          /* Reduce font sizes slightly on very small screens */
+          h1, h2 {
+            font-size: 1.3rem !important;
+          }
+        }
       `}</style>
-    </div>
+    </Box>
   );
 }

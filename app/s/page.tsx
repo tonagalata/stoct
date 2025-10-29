@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Typography } from '@mui/material';
 import { decryptJsonWithPin, decodeFromUrlQuery, EncryptedPayload, checkAndMarkTokenUsed } from '@/lib/crypto';
 import { createCard } from '@/lib/storage';
 
@@ -114,7 +115,7 @@ export default function SecureSharePage() {
 
         {payload && step === 'enter' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <label style={{ color: '#e0e0e0', fontSize: '0.9rem' }}>Enter PIN</label>
+            <Typography variant="body2" sx={{ color: 'text.primary', mb: 1 }}>Enter PIN</Typography>
             <input
               type="password"
               value={pin}

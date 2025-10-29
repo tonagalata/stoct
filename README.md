@@ -151,4 +151,4 @@ If you're having issues:
 
 ---
 
-**shortKut** - Keep your cards organized, keep your data private. 🎯
+**Stoct** - Keep your cards organized, keep your data private. 🎯
