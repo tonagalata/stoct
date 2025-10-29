@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { Card, CardInput, CardType } from '@/lib/types';
 import { getAllCards, createCard, removeCard, exportAllCards, importAllCards, cleanupExpiredOTPs } from '@/lib/storage';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
-import { InstallPrompt } from '@/components/InstallPrompt';
 import { LandingPage } from '@/components/LandingPage';
 import { PasscodeSettings } from '@/components/PasscodeSettings';
 import { CardForm } from '@/components/CardForm';
@@ -25,14 +24,24 @@ import {
   Alert,
   Snackbar,
   Tooltip,
-  Chip
+  Chip,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import { 
   QrCodeScanner as ScanIcon, 
   Download as ExportIcon,
   Upload as ImportIcon,
-  Refresh as RefreshIcon,
-  Security as SecurityIcon
+  Settings as SettingsIcon,
+  Info as InfoIcon,
+  Add as AddIcon,
+  ArrowBack as BackIcon,
+  Loyalty as LoyaltyIcon,
+  CreditCard as CreditCardIcon,
+  VpnKey as OTPIcon,
+  MoreVert as MoreIcon
 } from '@mui/icons-material';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -47,9 +56,11 @@ export default function HomePage() {
     message: '',
     severity: 'info'
   });
-  const [showInstallInfo, setShowInstallInfo] = useState(false);
   const [showPasscodeSettings, setShowPasscodeSettings] = useState(false);
   const [selectedCardType, setSelectedCardType] = useState<CardType | 'all'>('all');
+  const [creationStep, setCreationStep] = useState<'main' | 'type-select' | 'form'>('main');
+  const [selectedTypeForCreation, setSelectedTypeForCreation] = useState<CardType | null>(null);
+  const [mobileMenuAnchor, setMobileMenuAnchor] = useState<null | HTMLElement>(null);
 
   const router = useRouter();
 
@@ -87,24 +98,72 @@ export default function HomePage() {
       
       setNotification({
         open: true,
-        message: 'Card created successfully!',
+        message: 'Stoct created successfully!',
         severity: 'success'
       });
       
-      router.push(`/k/${newCard.id}`);
+      // Reset creation flow and go back to main view
+      setCreationStep('main');
+      setSelectedTypeForCreation(null);
+      
+      // Navigate to the new card after a brief delay
+      setTimeout(() => {
+        router.push(`/k/${newCard.id}`);
+      }, 1000);
     } catch (error: any) {
       if (error.code === 'DUPLICATE_CARD') {
+        // Reset creation flow and navigate to existing card
+        setCreationStep('main');
+        setSelectedTypeForCreation(null);
         router.push(`/k/${error.existingId}`);
       } else {
         setNotification({
           open: true,
-          message: 'Error creating card: ' + error.message,
+          message: 'Error creating Stoct: ' + error.message,
           severity: 'error'
         });
       }
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleStartCreation = () => {
+    setCreationStep('type-select');
+  };
+
+  const handleTypeSelection = (type: CardType) => {
+    setSelectedTypeForCreation(type);
+    setCreationStep('form');
+  };
+
+  const handleBackToMain = () => {
+    setCreationStep('main');
+    setSelectedTypeForCreation(null);
+  };
+
+  const handleBackToTypeSelect = () => {
+    setCreationStep('type-select');
+    setSelectedTypeForCreation(null);
+  };
+
+  const handleMobileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMobileMenuAnchor(event.currentTarget);
+  };
+
+  const handleMobileMenuClose = () => {
+    setMobileMenuAnchor(null);
+  };
+
+  const handleMobileSettings = () => {
+    setShowPasscodeSettings(true);
+    handleMobileMenuClose();
+  };
+
+  const handleMobileAbout = () => {
+    localStorage.removeItem('stoct-has-visited');
+    setShowLanding(true);
+    handleMobileMenuClose();
   };
 
   const handleScan = (data: string) => {
@@ -258,154 +317,463 @@ export default function HomePage() {
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Image src="/logo.png" alt="Stoct Logo" width={40} height={40} style={{ borderRadius: '8px' }} />
-            <Typography variant="h5" component="h1" sx={{ fontWeight: 700, color: 'text.primary' }}>
-              Stoct
-            </Typography>
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                cursor: 'pointer',
+                '&:hover': {
+                  opacity: 0.8
+                }
+              }}
+              onClick={() => {
+                setCreationStep('main');
+                setSelectedTypeForCreation(null);
+              }}
+            >
+              <Image src="/logo.png" alt="Stoct Logo" width={32} height={32} style={{ borderRadius: '6px' }} />
+              <Typography variant="h6" component="h1" sx={{ 
+                fontWeight: 600, 
+                color: 'text.primary',
+                fontSize: { xs: '1rem', sm: '1.25rem' },
+                display: { xs: 'none', sm: 'block' }
+              }}>
+                Stoct
+              </Typography>
+              <Typography variant="body1" component="h1" sx={{ 
+                fontWeight: 600, 
+                color: 'text.primary',
+                display: { xs: 'block', sm: 'none' }
+              }}>
+                Stoct
+              </Typography>
+            </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Beautiful Donate Button */}
             <Button
               component="a"
               href="https://ko-fi.com/stoct"
               target="_blank"
               rel="noopener noreferrer"
               variant="contained"
-              color="secondary"
               size="small"
-              sx={{ mr: 1, textTransform: 'none', fontWeight: 600 }}
+              sx={{ 
+                mr: 1, 
+                textTransform: 'none', 
+                fontWeight: 600,
+                background: (theme) => theme.palette.mode === 'dark' 
+                  ? 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)'
+                  : 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
+                color: 'white',
+                borderRadius: 2,
+                px: 2,
+                py: 0.5,
+                boxShadow: '0 3px 10px rgba(255, 107, 107, 0.3)',
+                '&:hover': {
+                  background: (theme) => theme.palette.mode === 'dark'
+                    ? 'linear-gradient(45deg, #FF5252 30%, #FF7043 90%)'
+                    : 'linear-gradient(45deg, #FF5252 30%, #FF7043 90%)',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 6px 20px rgba(255, 107, 107, 0.4)',
+                }
+              }}
             >
-              Donate
+              ❤️ Donate
             </Button>
+
+
+            {/* Desktop-only buttons */}
             <IconButton
               onClick={() => setShowPasscodeSettings(true)}
-              sx={{ color: 'text.primary' }}
-              title="Security Settings"
+              sx={{ 
+                color: 'text.primary',
+                display: { xs: 'none', sm: 'flex' }, // Hide on mobile
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'scale(1.1)',
+                }
+              }}
+              title="Settings"
             >
-              <SecurityIcon />
+              <SettingsIcon />
             </IconButton>
             <IconButton
               onClick={() => {
                 localStorage.removeItem('stoct-has-visited');
                 setShowLanding(true);
               }}
-              sx={{ color: 'text.primary' }}
-              title="Show Landing Page"
+              sx={{ 
+                color: 'text.primary',
+                display: { xs: 'none', sm: 'flex' }, // Hide on mobile
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'scale(1.1)',
+                }
+              }}
+              title="About Stoct"
             >
-              <RefreshIcon />
+              <InfoIcon />
             </IconButton>
+
+            {/* Theme Toggle - always visible */}
             <ThemeToggle />
+
+            {/* Mobile menu button - at the end */}
+            <IconButton
+              onClick={handleMobileMenuOpen}
+              sx={{ 
+                color: 'text.primary',
+                display: { xs: 'flex', sm: 'none' }, // Show only on mobile
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'scale(1.1)',
+                }
+              }}
+              title="Menu"
+            >
+              <MoreIcon />
+            </IconButton>
           </Box>
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        {/* PWA Install Prompt */}
-        <Grid container alignItems="center" mb={2}>
-          <InstallPrompt /> 
-          <Typography variant="caption" sx={{ color: 'text.primary' }}>
-            How to Install Stoct as an App
-          </Typography>
-        </Grid>
 
-        {/* Card Type Filter */}
-        {cards.length > 0 && (
-          <Paper sx={{ p: 2, mb: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                Filter by type:
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button
-                  variant={selectedCardType === 'all' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setSelectedCardType('all')}
-                  sx={{ minWidth: 'auto' }}
-                >
-                  All ({cards.length})
-                </Button>
-                <Button
-                  variant={selectedCardType === 'loyalty' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setSelectedCardType('loyalty')}
-                  sx={{ minWidth: 'auto' }}
-                >
-                  Loyalty ({cards.filter(c => c.type === 'loyalty').length})
-                </Button>
-                <Button
-                  variant={selectedCardType === 'credit' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setSelectedCardType('credit')}
-                  sx={{ minWidth: 'auto' }}
-                >
-                  Credit ({cards.filter(c => c.type === 'credit').length})
-                </Button>
-                <Button
-                  variant={selectedCardType === 'otp' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setSelectedCardType('otp')}
-                  sx={{ minWidth: 'auto' }}
-                >
-                  OTP ({cards.filter(c => c.type === 'otp').length})
-                </Button>
-              </Box>
-            </Box>
-          </Paper>
+        {/* Step-by-step Creation Flow */}
+        {creationStep === 'main' && (
+          <>
+            {/* Card Type Filter - only show if cards exist */}
+            {cards.length > 0 && (
+              <Paper sx={{ p: 2, mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Filter by type:
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button
+                      variant={selectedCardType === 'all' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() => setSelectedCardType('all')}
+                      sx={{ minWidth: 'auto' }}
+                    >
+                      All ({cards.length})
+                    </Button>
+                    <Button
+                      variant={selectedCardType === 'loyalty' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() => setSelectedCardType('loyalty')}
+                      sx={{ minWidth: 'auto' }}
+                    >
+                      Loyalty ({cards.filter(c => c.type === 'loyalty').length})
+                    </Button>
+                    <Button
+                      variant={selectedCardType === 'credit' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() => setSelectedCardType('credit')}
+                      sx={{ minWidth: 'auto' }}
+                    >
+                      Credit ({cards.filter(c => c.type === 'credit').length})
+                    </Button>
+                    <Button
+                      variant={selectedCardType === 'otp' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() => setSelectedCardType('otp')}
+                      sx={{ minWidth: 'auto' }}
+                    >
+                      OTP ({cards.filter(c => c.type === 'otp').length})
+                    </Button>
+                  </Box>
+                </Box>
+              </Paper>
+            )}
+          </>
         )}
 
-        {/* Conditional rendering based on whether cards exist */}
-        {cards.length > 0 ? (
+        {/* Step 1: Type Selection */}
+        {creationStep === 'type-select' && (
+          <Fade in timeout={300}>
+            <Paper 
+              elevation={0}
+              sx={{ 
+                p: 4, 
+                mb: 4,
+                backgroundColor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              <Box sx={{ textAlign: 'center', mb: 4 }}>
+                <Typography variant="h4" component="h2" sx={{ color: 'text.primary', fontWeight: 600, mb: 2 }}>
+                  Choose Your Stoct Type
+                </Typography>
+                <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: '600px', mx: 'auto' }}>
+                  Select the type of card or information you want to store securely
+                </Typography>
+              </Box>
+
+              <Grid container spacing={3} justifyContent="center">
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        backgroundColor: 'action.hover',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                      }
+                    }}
+                    onClick={() => handleTypeSelection('loyalty')}
+                  >
+                    <LoyaltyIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                      Loyalty Card
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Store membership cards, rewards programs, and loyalty points
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        backgroundColor: 'action.hover',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                      }
+                    }}
+                    onClick={() => handleTypeSelection('credit')}
+                  >
+                    <CreditCardIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                      Credit Card
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Securely store credit card information with validation
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        backgroundColor: 'action.hover',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                      }
+                    }}
+                    onClick={() => handleTypeSelection('otp')}
+                  >
+                    <OTPIcon sx={{ fontSize: 48, color: 'warning.main', mb: 2 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                      One-Time Password
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Create temporary passwords that auto-delete after use
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+            </Paper>
+          </Fade>
+        )}
+
+        {/* Step 2: Card Form */}
+        {creationStep === 'form' && selectedTypeForCreation && (
+          <Fade in timeout={300}>
+            <Paper 
+              elevation={0}
+              sx={{ 
+                p: 4, 
+                mb: 4,
+                backgroundColor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+                <IconButton
+                  onClick={handleBackToTypeSelect}
+                  sx={{ mr: 2 }}
+                >
+                  <BackIcon />
+                </IconButton>
+                <Box>
+                  <Typography variant="h4" component="h2" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                    Create {selectedTypeForCreation === 'loyalty' ? 'Loyalty Card' : 
+                           selectedTypeForCreation === 'credit' ? 'Credit Card' : 'One-Time Password'}
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: 'text.secondary', mt: 1 }}>
+                    Fill in the details for your new Stoct
+                  </Typography>
+                </Box>
+              </Box>
+
+              <CardForm
+                cardType={selectedTypeForCreation}
+                onSubmit={handleCardSubmit}
+                isSubmitting={isSubmitting}
+                onScan={() => setShowScanner(true)}
+              />
+            </Paper>
+          </Fade>
+        )}
+
+        {/* Main View - Cards List */}
+        {creationStep === 'main' && (
           <>
-            {/* Cards List */}
-            <Fade in timeout={600}>
+            {/* Create a Stoct Section - Always visible */}
+            <Fade in timeout={400}>
               <Paper 
                 elevation={0}
                 sx={{ 
-                  p: 4, 
-                  mb: 4,
+                  p: 3, 
+                  mb: 3,
                   backgroundColor: 'background.paper',
                   border: '1px solid',
                   borderColor: 'divider',
                   borderRadius: 3,
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+                  textAlign: 'center'
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                  <Typography variant="h4" component="h2" sx={{ color: 'text.primary', fontWeight: 600 }}>
-                    Your Cards ({filteredCards.length})
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      onClick={handleExport}
-                      startIcon={<ExportIcon />}
-                      size="small"
-                      sx={{ 
-                        borderColor: 'success.main',
-                        color: 'success.main',
-                        '&:hover': {
-                          borderColor: 'success.light',
-                          backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                        }
-                      }}
-                    >
-                      Export
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      onClick={() => document.getElementById('import-input')?.click()}
-                      startIcon={<ImportIcon />}
-                      size="small"
-                      sx={{ 
-                        borderColor: 'primary.main',
-                        color: 'primary.main',
-                        '&:hover': {
-                          borderColor: 'primary.light',
-                          backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                        }
-                      }}
-                    >
-                      Import
-                    </Button>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={handleStartCreation}
+                  startIcon={<AddIcon />}
+                  sx={{ 
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    fontWeight: 600,
+                    px: 4,
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    borderRadius: 2,
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)'
+                    }
+                  }}
+                >
+                  Create a Stoct
+                </Button>
+              </Paper>
+            </Fade>
+
+            {cards.length > 0 ? (
+              <>
+                {/* Your Stocts Section */}
+                <Fade in timeout={600}>
+                  <Paper 
+                    elevation={0}
+                    sx={{ 
+                      p: { xs: 2, sm: 3, md: 4 }, 
+                      mb: { xs: 2, sm: 4 },
+                      backgroundColor: 'background.paper',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 3,
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                    }}
+                  >
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: { xs: 'flex-start', sm: 'center' }, 
+                      justifyContent: 'space-between', 
+                      mb: { xs: 2, sm: 3 },
+                      flexDirection: { xs: 'column', sm: 'row' },
+                      gap: { xs: 2, sm: 0 }
+                    }}>
+                      <Typography variant="h5" component="h2" sx={{ 
+                        color: 'text.primary', 
+                        fontWeight: 600,
+                        fontSize: { xs: '1.5rem', sm: '2rem' }
+                      }}>
+                        Your Stocts ({filteredCards.length})
+                      </Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        gap: { xs: 1, sm: 1 },
+                        flexDirection: { xs: 'row', sm: 'row' },
+                        width: { xs: '100%', sm: 'auto' }
+                      }}>
+                        <Button
+                          variant="outlined"
+                          onClick={handleExport}
+                          startIcon={<ExportIcon />}
+                          size="small"
+                          sx={{ 
+                            borderColor: 'success.main',
+                            color: 'success.main',
+                            flex: { xs: 1, sm: 'none' },
+                            minWidth: { xs: 'auto', sm: '80px' },
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                            px: { xs: 1, sm: 2 },
+                            '&:hover': {
+                              borderColor: 'success.light',
+                              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            }
+                          }}
+                        >
+                          Export
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          onClick={() => document.getElementById('import-input')?.click()}
+                          startIcon={<ImportIcon />}
+                          size="small"
+                          sx={{ 
+                            borderColor: 'primary.main',
+                            color: 'primary.main',
+                            flex: { xs: 1, sm: 'none' },
+                            minWidth: { xs: 'auto', sm: '80px' },
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                            px: { xs: 1, sm: 2 },
+                            '&:hover': {
+                              borderColor: 'primary.light',
+                              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                            }
+                          }}
+                        >
+                          Import
+                        </Button>
                     <input
                       id="import-input"
                       type="file"
@@ -430,227 +798,117 @@ export default function HomePage() {
                 </Grid>
               </Paper>
             </Fade>
-
-            {/* Add New Card Form */}
-            <Fade in timeout={800}>
-              <Paper 
-                elevation={0}
-                data-form="add-card"
-                sx={{ 
-                  p: 3, 
-                  mb: 4, 
-                  backgroundColor: 'background.paper',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-                }}
-              >
-                <Typography variant="h5" component="h2" sx={{ mb: 3, color: 'text.primary', fontWeight: 600 }}>
-                  Add New Card
-                </Typography>
-                
-                <CardForm 
-                  onSubmit={handleCardSubmit}
-                  isSubmitting={isSubmitting}
-                />
-                
-                {/* Scan button */}
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                  <Button
-                    type="button"
-                    variant="outlined"
-                    onClick={() => setShowScanner(true)}
-                    disabled={isSubmitting}
-                    startIcon={<ScanIcon />}
-                    fullWidth
+              </>
+            ) : (
+              <>
+                {/* Empty State - Create Your First Stoct */}
+                <Fade in timeout={600}>
+                  <Paper 
+                    elevation={0}
                     sx={{ 
-                      minHeight: 48,
-                      px: 4,
-                      borderColor: 'primary.main',
-                      color: 'primary.main',
-                      fontWeight: 600,
-                      '&:hover': {
-                        borderColor: 'primary.light',
-                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                        transform: 'translateY(-1px)',
-                      },
-                      '&:disabled': {
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                        color: 'rgba(255, 255, 255, 0.5)',
-                      }
+                      p: 6, 
+                      mb: 4, 
+                      backgroundColor: 'background.paper',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 3,
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                      textAlign: 'center'
                     }}
                   >
-                    Scan Barcode/QR Code
-                  </Button>
-                </Box>
-              </Paper>
-            </Fade>
-          </>
-        ) : (
-          <>
-            {/* Add New Card Form (shown first when no cards exist) */}
-            <Fade in timeout={600}>
-              <Paper 
-                elevation={0}
-                data-form="add-card"
-                sx={{ 
-                  p: 3, 
-                  mb: 4, 
-                  backgroundColor: 'background.paper',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-                }}
-              >
-                <Typography variant="h5" component="h2" sx={{ mb: 3, color: 'text.primary', fontWeight: 600 }}>
-                  Add New Card
-                </Typography>
-                
-                <CardForm 
-                  onSubmit={handleCardSubmit}
-                  isSubmitting={isSubmitting}
-                />
-                
-                {/* Scan button */}
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                  <Button
-                    type="button"
-                    variant="outlined"
-                    onClick={() => setShowScanner(true)}
-                    disabled={isSubmitting}
-                    startIcon={<ScanIcon />}
-                    fullWidth
-                    sx={{ 
-                      minHeight: 48,
-                      px: 4,
-                      borderColor: 'primary.main',
-                      color: 'primary.main',
-                      fontWeight: 600,
-                      '&:hover': {
-                        borderColor: 'primary.light',
-                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                        transform: 'translateY(-1px)',
-                      },
-                      '&:disabled': {
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                        color: 'rgba(255, 255, 255, 0.5)',
-                      }
-                    }}
-                  >
-                    Scan Barcode/QR Code
-                  </Button>
-                </Box>
-              </Paper>
-            </Fade>
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h3" component="h2" sx={{ color: 'text.primary', fontWeight: 700, mb: 2 }}>
+                        Welcome to Stoct!
+                      </Typography>
+                      <Typography variant="h6" sx={{ color: 'text.secondary', maxWidth: '500px', mx: 'auto', mb: 4 }}>
+                        Store your loyalty cards, credit cards, and one-time passwords securely in one place.
+                      </Typography>
+                      
+                      <Button
+                        variant="contained"
+                        size="large"
+                        onClick={handleStartCreation}
+                        startIcon={<AddIcon />}
+                        sx={{ 
+                          backgroundColor: 'primary.main',
+                          color: 'primary.contrastText',
+                          fontWeight: 600,
+                          px: 4,
+                          py: 1.5,
+                          fontSize: '1.1rem',
+                          borderRadius: 2,
+                          '&:hover': {
+                            backgroundColor: 'primary.dark',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)'
+                          }
+                        }}
+                      >
+                        Create Your First Stoct
+                      </Button>
+                    </Box>
 
-            {/* Empty state for no cards */}
-            <Fade in timeout={800}>
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: 4, 
-                  mb: 4,
-                  backgroundColor: 'background.paper',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-                }}
-              >
-                <Box sx={{ textAlign: 'center', py: 8 }}>
-                  <Typography variant="h1" sx={{ fontSize: '4rem', mb: 2 }}>
-                    💳
-                  </Typography>
-                  <Typography variant="h5" sx={{ mb: 1, color: 'text.primary' }}>
-                    No cards yet
-                  </Typography>
-                  <Typography variant="body1" sx={{ color: 'text.primary' }}>
-                    Create your first card above or scan a barcode to get started
-                  </Typography>
-                </Box>
-              </Paper>
-            </Fade>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mt: 4 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <LoyaltyIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          Loyalty Cards
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <CreditCardIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          Credit Cards
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <OTPIcon sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          One-Time Passwords
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Paper>
+                </Fade>
+
+              </>
+            )}
           </>
         )}
 
-        {/* PWA Installation Info */}
-        <Tooltip
-          title={
-            <Box sx={{ p: 1 }}>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                Benefits of installing Stoct:
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
-                ⚡ Faster loading from home screen
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
-                📱 Works offline
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                🏠 Native app experience
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', opacity: 0.8 }}>
-                Look for "Add to Home Screen" in your browser menu
-              </Typography>
-            </Box>
-          }
-          arrow
-          placement="top"
-          componentsProps={{
-            tooltip: {
-              sx: {
-                backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                color: 'white',
-                maxWidth: 300,
-                fontSize: '0.875rem',
-                '& .MuiTooltip-arrow': {
-                  color: 'rgba(0, 0, 0, 0.9)',
-                },
-              },
-            },
-          }}
-        >
-          <Alert
-            severity="info"
-            sx={{
-              mb: 4,
-              backgroundColor: 'rgba(33, 150, 243, 0.1)',
-              border: '1px solid rgba(33, 150, 243, 0.2)',
-              '& .MuiAlert-icon': {
-                color: 'primary.main'
-              },
-              '& .MuiAlert-message': {
-                color: 'text.primary'
-              }
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="body2" sx={{ color: 'text.primary' }}>
-                📱 <strong>Install Stoct as an App!</strong> Add to your home screen for a better experience.
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <InstallPrompt showInfoIcon={false} />
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={() => setShowInstallInfo(true)}
-                  sx={{
-                    backgroundColor: 'success.main',
-                    '&:hover': {
-                      backgroundColor: 'success.dark',
-                    }
-                  }}
-                >
-                  Learn More
-                </Button>
-              </Box>
-            </Box>
-          </Alert>
-        </Tooltip>
 
       </Container>
+
+      {/* Mobile Menu */}
+      <Menu
+        anchorEl={mobileMenuAnchor}
+        open={Boolean(mobileMenuAnchor)}
+        onClose={handleMobileMenuClose}
+        PaperProps={{
+          sx: {
+            backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            minWidth: 160
+          }
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleMobileSettings}>
+          <ListItemIcon>
+            <SettingsIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Settings</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleMobileAbout}>
+          <ListItemIcon>
+            <InfoIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>About Stoct</ListItemText>
+        </MenuItem>
+      </Menu>
 
       {/* Scanner Modal */}
       {showScanner && (
@@ -660,14 +918,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* Install Info Dialog */}
-      {showInstallInfo && (
-        <InstallPrompt
-          showInfoIcon={true}
-          forceShowDialog={true}
-          onClose={() => setShowInstallInfo(false)}
-        />
-      )}
 
       {/* Passcode Settings Dialog */}
       <PasscodeSettings

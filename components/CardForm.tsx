@@ -33,10 +33,12 @@ interface CardFormProps {
   onSubmit: (cardInput: CardInput) => void;
   isSubmitting?: boolean;
   initialData?: Partial<CardInput>;
+  cardType?: CardType; // Optional: if provided, locks the form to this type
+  onScan?: () => void; // Optional: callback for scan button
 }
 
-export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFormProps) {
-  const [cardType, setCardType] = useState<CardType>('loyalty');
+export function CardForm({ onSubmit, isSubmitting = false, initialData, cardType: fixedCardType, onScan }: CardFormProps) {
+  const [cardType, setCardType] = useState<CardType>(fixedCardType || 'loyalty');
   const [formData, setFormData] = useState({
     brand: '',
     number: '',
@@ -167,12 +169,14 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {/* Card Type Selector */}
-      <CardTypeSelector
-        value={cardType}
-        onChange={setCardType}
-        disabled={isSubmitting}
-      />
+      {/* Card Type Selector - only show if cardType is not fixed */}
+      {!fixedCardType && (
+        <CardTypeSelector
+          value={cardType}
+          onChange={setCardType}
+          disabled={isSubmitting}
+        />
+      )}
 
       {/* Brand Field */}
       <TextField
@@ -523,27 +527,53 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
         size="small"
       />
 
-      {/* Submit Button */}
-      <Button
-        type="submit"
-        variant="contained"
-        disabled={isSubmitting || !isFormValid()}
-        startIcon={<AddIcon />}
-        fullWidth
-        sx={{ 
-          minHeight: 48,
-          backgroundColor: 'primary.main',
-          '&:hover': {
-            backgroundColor: 'primary.dark',
-          },
-          '&:disabled': {
-            backgroundColor: 'action.disabledBackground',
-            color: 'action.disabled',
-          }
-        }}
-      >
-        {isSubmitting ? 'Creating...' : `Add ${cardType === 'credit' ? 'Credit Card' : cardType === 'otp' ? 'One-Time Password' : 'Loyalty Card'}`}
-      </Button>
+      {/* Action Buttons */}
+      <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+        {/* Scan Button - only show for loyalty cards and if onScan is provided */}
+        {cardType === 'loyalty' && onScan && (
+          <Button
+            type="button"
+            variant="outlined"
+            onClick={onScan}
+            disabled={isSubmitting}
+            startIcon={<CreditCardIcon />}
+            sx={{ 
+              minHeight: 48,
+              flex: { xs: 1, sm: 'none' },
+              borderColor: 'primary.main',
+              color: 'primary.main',
+              '&:hover': {
+                borderColor: 'primary.dark',
+                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+              }
+            }}
+          >
+            Scan Card
+          </Button>
+        )}
+        
+        {/* Submit Button */}
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={isSubmitting || !isFormValid()}
+          startIcon={<AddIcon />}
+          sx={{ 
+            minHeight: 48,
+            flex: 1,
+            backgroundColor: 'primary.main',
+            '&:hover': {
+              backgroundColor: 'primary.dark',
+            },
+            '&:disabled': {
+              backgroundColor: 'action.disabledBackground',
+              color: 'action.disabled',
+            }
+          }}
+        >
+          {isSubmitting ? 'Creating...' : `Create ${cardType === 'credit' ? 'Credit Card' : cardType === 'otp' ? 'One-Time Password' : 'Loyalty Card'}`}
+        </Button>
+      </Box>
     </Box>
   );
 }

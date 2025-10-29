@@ -145,12 +145,21 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
               </Typography>
             </Box>
             
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              mb: 2,
+              overflow: 'hidden',
+              '& canvas': {
+                maxWidth: '100%',
+                height: 'auto'
+              }
+            }}>
               <Barcode
                 data={loyaltyCard.number}
                 type={loyaltyCard.barcodeType || 'code128'}
-                width={200}
-                height={60}
+                width={180}
+                height={50}
               />
             </Box>
             
@@ -317,14 +326,26 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
         borderColor: 'divider',
         transition: 'all 0.3s ease',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)',
+          transform: { xs: 'none', sm: 'translateY(-4px)' },
+          boxShadow: { xs: 'none', sm: '0 12px 40px rgba(0, 0, 0, 0.2)' },
         }
       }}
     >
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="h6" component="h3" sx={{ color: 'text.primary', fontWeight: 600 }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          mb: { xs: 1.5, sm: 2 },
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 1, sm: 0 },
+          textAlign: { xs: 'center', sm: 'left' }
+        }}>
+          <Typography variant="h6" component="h3" sx={{ 
+            color: 'text.primary', 
+            fontWeight: 600,
+            fontSize: { xs: '1.1rem', sm: '1.25rem' }
+          }}>
             {card.brand}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -334,7 +355,7 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
               size="small" 
               color={getCardTypeColor()}
               sx={{ 
-                fontSize: '0.75rem',
+                fontSize: { xs: '0.65rem', sm: '0.75rem' },
                 fontWeight: 600
               }}
             />
@@ -358,16 +379,22 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
         )}
       </CardContent>
       
-      <CardActions sx={{ flexDirection: 'column', gap: 1, p: 2 }}>
+      <CardActions sx={{ 
+        flexDirection: 'column', 
+        gap: { xs: 0.5, sm: 1 }, 
+        p: { xs: 1.5, sm: 2 } 
+      }}>
         <Button
           fullWidth
           variant="contained"
           onClick={() => onView(card)}
           startIcon={<ViewIcon />}
+          size="small"
           sx={{ 
             backgroundColor: 'primary.main',
-            minHeight: 44,
+            minHeight: { xs: 36, sm: 44 },
             fontWeight: 600,
+            fontSize: { xs: '0.8rem', sm: '0.875rem' },
             '&:hover': {
               backgroundColor: 'primary.dark',
             }
