@@ -3,16 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Card, CardInput } from '@/lib/types';
-import { getCard, updateCard } from '@/lib/storage';
+import { Card, CardInput, LoyaltyCard, CreditCard, OneTimePassword } from '@/lib/types';
+import { getCard, updateCard, markOTPAsUsed, removeCard } from '@/lib/storage';
 import { copyToClipboard } from '@/lib/clipboard';
 import { Barcode } from '@/lib/barcode';
+import { formatCardNumber, getCardIssuer, maskCardNumber, detectCardIssuer } from '@/lib/credit-card-utils';
+import { PaymentBrandIcon } from '@/components/icons/PaymentBrandIcon';
 import { encryptJsonWithPin, encodeToUrlQuery } from '@/lib/crypto';
 import { useToast } from '@/components/ToastProvider';
 import { Modal } from '@/components/Modal';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
+import { CardForm } from '@/components/CardForm';
 import { 
-  TextField, 
   Button, 
   Container, 
   Paper, 
@@ -20,144 +22,144 @@ import {
   Box, 
   IconButton,
   Chip,
-  FormControl,
-  FormLabel,
-  InputLabel,
-  Select,
-  MenuItem,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   AppBar,
   Toolbar,
   Fade,
   Alert,
-  Snackbar
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  LinearProgress,
+  TextField
 } from '@mui/material';
 import { 
-  Edit as EditIcon, 
-  QrCodeScanner as ScanIcon, 
-  ContentCopy as CopyIcon, 
-  Share as ShareIcon,
   ArrowBack as BackIcon,
-  Save as SaveIcon,
-  Cancel as CancelIcon
+  Edit as EditIcon,
+  Share as ShareIcon,
+  ContentCopy as CopyIcon,
+  Schedule as ScheduleIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  CreditCard as CreditCardIcon,
+  VpnKey as OTPIcon,
+  Loyalty as LoyaltyIcon,
+    QrCodeScanner as ScanIcon,
+    Visibility as VisibilityIcon,
+    VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
-interface CardPageProps {
+interface CardDetailPageProps {
   params: Promise<{
     id: string;
   }>;
 }
 
-export default function CardPage({ params }: CardPageProps) {
+export default function CardDetailPage({ params }: CardDetailPageProps) {
+  const [id, setId] = useState<string | null>(null);
   const [card, setCard] = useState<Card | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
-  const [cardId, setCardId] = useState<string>('');
-  const [showScanner, setShowScanner] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState<CardInput>({
-    brand: '',
-    number: '',
-    pin: '',
-    notes: '',
-    barcodeType: 'code128',
-  });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [sharePin, setSharePin] = useState('');
-  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showCVV, setShowCVV] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const [isExpired, setIsExpired] = useState(false);
+  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+
   const router = useRouter();
   const { showToast } = useToast();
 
+  // Handle async params
   useEffect(() => {
-    const loadCard = async () => {
-      try {
-        const resolvedParams = await params;
-        setCardId(resolvedParams.id);
-        
-        if (typeof window !== 'undefined') {
-          const cardData = getCard(resolvedParams.id);
-          if (cardData) {
-            setCard(cardData);
-            setEditData({
-              brand: cardData.brand,
-              number: cardData.number,
-              pin: cardData.pin || '',
-              notes: cardData.notes || '',
-              barcodeType: cardData.barcodeType || 'code128',
-            });
-            setIsVisible(true);
-          } else {
-            setMessage('Card not found');
-          }
-        }
-      } catch (error) {
-        console.error('Error loading card:', error);
-        setMessage('Error loading card');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCard();
+    params.then(({ id: paramId }) => {
+      setId(paramId);
+    });
   }, [params]);
+
+  // Load card data
+  useEffect(() => {
+    if (!id) return;
+    
+    const cardData = getCard(id);
+    if (cardData) {
+      setCard(cardData);
+    } else {
+      router.push('/');
+    }
+  }, [id, router]);
+
+  // Handle OTP expiration countdown
+  useEffect(() => {
+    if (card?.type === 'otp') {
+      const otpCard = card as OneTimePassword;
+      const updateCountdown = () => {
+        const now = Date.now();
+        const timeLeft = otpCard.expiresAt - now;
+        
+        if (timeLeft <= 0) {
+          setIsExpired(true);
+          setTimeRemaining('Expired');
+          return;
+        }
+        
+        const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+        
+        setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
+      };
+      
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [card]);
 
   const handleEdit = () => {
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    if (card) {
-      setEditData({
-        brand: card.brand,
-        number: card.number,
-        pin: card.pin || '',
-        notes: card.notes || '',
-        barcodeType: card.barcodeType || 'code128',
-      });
-    }
     setIsEditing(false);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setEditData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSave = async () => {
-    if (!card || !editData.brand.trim() || !editData.number.trim()) return;
+  const handleSave = (cardInput: CardInput) => {
+    if (!card) return;
 
     setIsSubmitting(true);
     try {
-      const updatedCard: Card = {
+      const updatedCard = updateCard({
         ...card,
-        brand: editData.brand.trim(),
-        number: editData.number.trim(),
-        pin: (editData.pin ?? '').trim() || undefined,
-        notes: (editData.notes ?? '').trim() || undefined,
-        barcodeType: editData.barcodeType,
-        updatedAt: Date.now(),
-      };
-
-      updateCard(updatedCard);
+        ...cardInput,
+        updatedAt: Date.now()
+      } as Card);
+      
       setCard(updatedCard);
       setIsEditing(false);
-      setMessage('Card updated successfully!');
-      setTimeout(() => setMessage(''), 3000);
+      
+      setNotification({
+        open: true,
+        message: 'Card updated successfully!',
+        severity: 'success'
+      });
     } catch (error: any) {
       if (error.code === 'DUPLICATE_CARD') {
         router.push(`/k/${error.existingId}`);
       } else {
-        setMessage('Error updating card: ' + error.message);
-        setTimeout(() => setMessage(''), 5000);
+        setNotification({
+          open: true,
+          message: 'Error updating card: ' + error.message,
+          severity: 'error'
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -166,12 +168,17 @@ export default function CardPage({ params }: CardPageProps) {
 
   const handleScan = (data: string) => {
     setShowScanner(false);
-    if (isEditing) {
-      setEditData(prev => ({ ...prev, number: data }));
-    } else {
-      copyToClipboard(data);
-      setMessage('Barcode data copied to clipboard!');
-      setTimeout(() => setMessage(''), 3000);
+    
+    if (card?.type === 'loyalty') {
+      const loyaltyCardInput: CardInput = {
+        type: 'loyalty',
+        brand: card.brand,
+        number: data,
+        pin: (card as LoyaltyCard).pin,
+        notes: card.notes,
+        barcodeType: (card as LoyaltyCard).barcodeType
+      };
+      handleSave(loyaltyCardInput);
     }
   };
 
@@ -179,774 +186,535 @@ export default function CardPage({ params }: CardPageProps) {
     setShowScanner(false);
   };
 
-  const handleCopyShareLink = async () => {
-    if (!shareLink) return;
-    try {
-      await navigator.clipboard.writeText(shareLink);
-      showToast('Link copied to clipboard!', 'success');
-    } catch (err) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = shareLink;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      showToast('Link copied to clipboard!', 'success');
-    }
-  };
-
-  const copyData = (text: string, label: string) => {
-    copyToClipboard(text);
-    setMessage(`${label} copied to clipboard!`);
-    setTimeout(() => setMessage(''), 3000);
-  };
-
   const handleSecureShare = async () => {
     if (!card) return;
-    if (!sharePin || sharePin.length < 4) {
-      showToast('PIN must be at least 4 characters.', 'error');
-      return;
-    }
+
     try {
-      if (!window.isSecureContext) {
-        throw new Error('SECURE_CONTEXT_REQUIRED');
+      const pin = prompt('Enter a PIN to encrypt this card (4-8 characters):');
+      if (!pin || pin.length < 4 || pin.length > 8) {
+        setNotification({
+          open: true,
+          message: 'Please enter a PIN between 4-8 characters.',
+          severity: 'error'
+        });
+        return;
       }
 
-      const payload = await encryptJsonWithPin({
-        brand: card.brand,
-        number: card.number,
-        pin: card.pin,
-        notes: card.notes,
-        barcodeType: card.barcodeType || 'code128',
-      }, sharePin);
-      const query = encodeToUrlQuery(payload);
-      const url = `${window.location.origin}/s?data=${query}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        setShareLink(url);
-        showToast('Secure link copied to clipboard!', 'success');
-      } catch (clipErr) {
-        const manual = confirm('Copy link manually? Selecting OK will open a dialog with the link.');
-        if (manual) {
-          prompt('Copy this secure link:', url);
-          setShareLink(url);
-          showToast('Secure link ready to share.', 'info');
-        }
-      }
-      setShareOpen(false);
-    } catch (e: any) {
-      if (e && e.message === 'SECURE_CONTEXT_REQUIRED') {
-        showToast('Secure link requires HTTPS. Use Netlify or ngrok.', 'error');
-      } else if (typeof e?.message === 'string' && e.message.includes('Web Crypto')) {
-        showToast('Secure link unavailable: Web Crypto not supported.', 'error');
-      } else {
-        showToast('Failed to create secure link.', 'error');
-      }
+      const encryptedData = await encryptJsonWithPin(card, pin);
+      const encodedData = encodeToUrlQuery(encryptedData);
+      const shareUrl = `${window.location.origin}/k/${card.id}?data=${encodedData}`;
+      
+      setShareLink(shareUrl);
+      setShowShareDialog(true);
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Error creating secure share link: ' + (error as Error).message,
+        severity: 'error'
+      });
     }
   };
 
-  if (loading) {
+  const handleCopyShareLink = async () => {
+    try {
+      await copyToClipboard(shareLink);
+      setNotification({
+        open: true,
+        message: 'Share link copied to clipboard!',
+        severity: 'success'
+      });
+      // If this is an OTP, auto-delete after sharing the link
+      if (card?.type === 'otp') {
+        setTimeout(() => {
+          handleDelete();
+        }, 800);
+      }
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Failed to copy link. Please try manually.',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleDelete = () => {
+    if (card) {
+      removeCard(card.id);
+      router.push('/');
+    }
+  };
+
+  const handleOTPUse = () => {
+    if (card?.type === 'otp') {
+      markOTPAsUsed(card.id);
+      setCard({ ...card, isUsed: true } as OneTimePassword);
+      
+      const otpCard = card as OneTimePassword;
+      copyToClipboard(otpCard.password)
+        .then(() => {
+          setNotification({
+            open: true,
+            message: 'One-time password copied to clipboard!',
+            severity: 'success'
+          });
+          // Auto-delete the OTP after use
+          setTimeout(() => {
+            handleDelete();
+          }, 1000); // Small delay to show the success message
+        })
+        .catch(() => {
+          setNotification({
+            open: true,
+            message: 'Failed to copy password. Please try manually.',
+            severity: 'error'
+          });
+        });
+    }
+  };
+
+  const getCardIcon = () => {
+    if (!card) return null;
+    
+    switch (card.type) {
+      case 'credit':
+        return <CreditCardIcon sx={{ color: 'secondary.main' }} />;
+      case 'otp':
+        return <OTPIcon sx={{ color: 'warning.main' }} />;
+      default:
+        return <LoyaltyIcon sx={{ color: 'primary.main' }} />;
+    }
+  };
+
+  const getCardTypeColor = () => {
+    if (!card) return 'primary';
+    
+    switch (card.type) {
+      case 'credit':
+        return 'secondary';
+      case 'otp':
+        return 'warning';
+      default:
+        return 'primary';
+    }
+  };
+
+  const maskCardNumber = (number: string) => {
+    if (number.length <= 4) return number;
+    return '*'.repeat(number.length - 4) + number.slice(-4);
+  };
+
+  const formatCardNumber = (number: string) => {
+    return number.replace(/(\d{4})(?=\d)/g, '$1 ');
+  };
+
+  const renderCardContent = () => {
+    if (!card) return null;
+
+    switch (card.type) {
+      case 'loyalty':
+        const loyaltyCard = card as LoyaltyCard;
+        return (
+          <>
+            <Box
+              sx={{
+                mb: 3,
+                p: 2,
+                backgroundColor: 'action.hover',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                maxHeight: '100px',
+                overflowY: 'auto',
+                wordBreak: 'break-all',
+                wordWrap: 'break-word'
+              }}
+            >
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  fontFamily: 'monospace',
+                  letterSpacing: '1px',
+                  color: 'text.primary',
+                  textAlign: 'center'
+                }}
+              >
+                {maskCardNumber(loyaltyCard.number)}
+              </Typography>
+            </Box>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+              <Barcode
+                data={loyaltyCard.number}
+                type={loyaltyCard.barcodeType || 'code128'}
+                width={300}
+                height={80}
+              />
+            </Box>
+            
+            {loyaltyCard.pin && (
+              <Typography variant="h6" sx={{ color: 'text.secondary', mb: 2, textAlign: 'center' }}>
+                PIN: {loyaltyCard.pin}
+              </Typography>
+            )}
+          </>
+        );
+
+      case 'credit':
+        const creditCard = card as CreditCard;
+        const issuer = getCardIssuer(creditCard.cardNumber);
+        return (
+          <>
+            <Box
+              sx={{
+                mb: 3,
+                p: 2,
+                backgroundColor: 'action.hover',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                maxHeight: '120px',
+                overflowY: 'auto',
+                wordBreak: 'break-all',
+                wordWrap: 'break-word'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
+                <PaymentBrandIcon issuer={(detectCardIssuer(creditCard.cardNumber) as any) || 'unknown'} size={32} />
+                <Typography variant="h6" sx={{ 
+                  color: issuer.color,
+                  fontWeight: 600
+                }}>
+                  {issuer.name}
+                </Typography>
+              </Box>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontFamily: 'monospace',
+                  letterSpacing: '2px',
+                  color: 'text.primary',
+                  textAlign: 'center'
+                }}
+              >
+                {formatCardNumber(maskCardNumber(creditCard.cardNumber))}
+              </Typography>
+            </Box>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, px: 4 }}>
+              <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+                {creditCard.expiryMonth}/{creditCard.expiryYear}
+              </Typography>
+              {creditCard.cvv && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+                    CVV: {showCVV ? creditCard.cvv : '•••'}
+                  </Typography>
+                  <IconButton size="small" onClick={() => setShowCVV(!showCVV)} aria-label={showCVV ? 'Hide CVV' : 'Show CVV'}>
+                    {showCVV ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                  </IconButton>
+                </Box>
+              )}
+            </Box>
+            
+            {creditCard.cardholderName && (
+              <Typography variant="h5" sx={{ color: 'text.secondary', mb: 2, textAlign: 'center' }}>
+                {creditCard.cardholderName}
+              </Typography>
+            )}
+          </>
+        );
+
+      case 'otp':
+        const otpCard = card as OneTimePassword;
+        return (
+          <>
+            <Box
+              sx={{
+                mb: 3,
+                p: 3,
+                backgroundColor: 'action.hover',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                maxHeight: '150px',
+                overflowY: 'auto',
+                wordBreak: 'break-all',
+                wordWrap: 'break-word'
+              }}
+            >
+              <Typography 
+                variant="h3" 
+                sx={{ 
+                  fontFamily: 'monospace',
+                  letterSpacing: '2px',
+                  color: 'text.primary',
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  lineHeight: 1.2
+                }}
+              >
+                {otpCard.password}
+              </Typography>
+            </Box>
+            
+            <Typography variant="h5" sx={{ color: 'text.secondary', mb: 3, textAlign: 'center' }}>
+              {otpCard.description}
+            </Typography>
+            
+            {!otpCard.isUsed && !isExpired && (
+              <Alert 
+                severity="info" 
+                sx={{ mb: 3 }}
+                icon={<ScheduleIcon />}
+              >
+                <Typography variant="h6">
+                  Expires in: {timeRemaining}
+                </Typography>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={Math.max(0, ((otpCard.expiresAt - Date.now()) / (otpCard.expiresAt - otpCard.createdAt)) * 100)}
+                  sx={{ mt: 2 }}
+                />
+              </Alert>
+            )}
+            
+            {otpCard.isUsed && (
+              <Alert 
+                severity="success" 
+                sx={{ mb: 3 }}
+                icon={<CheckCircleIcon />}
+              >
+                <Typography variant="h6">
+                  This password has been used
+                </Typography>
+              </Alert>
+            )}
+            
+            {isExpired && (
+              <Alert 
+                severity="error" 
+                sx={{ mb: 3 }}
+                icon={<WarningIcon />}
+              >
+                <Typography variant="h6">
+                  This password has expired
+                </Typography>
+              </Alert>
+            )}
+          </>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  if (!id) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)',
-        color: '#ffffff',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{
-          textAlign: 'center',
-          animation: 'pulse 2s ease-in-out infinite'
-        }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            border: '3px solid rgba(255, 255, 255, 0.3)',
-            borderTop: '3px solid #ffffff',
-            borderRadius: '50%',
-            margin: '0 auto 20px',
-            animation: 'spin 1s linear infinite'
-          }} />
-          <p style={{ color: '#b0b0b0', fontSize: '1.1rem' }}>Loading card...</p>
-        </div>
-        <style jsx>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-          }
-        `}</style>
-      </div>
+      <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="h6">Loading...</Typography>
+      </Box>
     );
   }
 
   if (!card) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)',
-        color: '#ffffff',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        padding: '20px'
-      }}>
-        <div>
-          <div style={{
-            fontSize: '4rem',
-            marginBottom: '20px'
-          }}>
-            😞
-          </div>
-          <h1 style={{
-            fontSize: '2rem',
-            fontWeight: '600',
-            margin: '0 0 10px 0',
-            color: '#ffffff'
-          }}>
-            Card Not Found
-          </h1>
-          <p style={{
-            color: '#b0b0b0',
-            margin: '0 0 30px 0',
-            fontSize: '1.1rem'
-          }}>
-            The card you're looking for doesn't exist or has been deleted.
-          </p>
-          <button
-            onClick={() => router.push('/')}
-            style={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%)',
-              color: '#000000',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '600',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            ← Back to Home
-          </button>
-        </div>
-      </div>
+      <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="h6">Card not found</Typography>
+      </Box>
     );
   }
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
-      {/* Modern App Bar */}
+      {/* App Bar */}
       <AppBar 
         position="static" 
         elevation={0}
         sx={{ 
-          backgroundColor: 'transparent',
+          backgroundColor: 'background.paper',
           borderBottom: '1px solid',
-          borderColor: 'divider',
-          backdropFilter: 'blur(10px)'
+          borderColor: 'divider'
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Image src="/logo.png" alt="Stoct Logo" width={40} height={40} style={{ borderRadius: '8px' }} />
-            <Typography variant="h5" component="h1" sx={{ fontWeight: 700, color: 'text.primary' }}>
-              Card Details
+            <IconButton
+              onClick={() => router.push('/')}
+              sx={{ color: 'text.primary' }}
+            >
+              <BackIcon />
+            </IconButton>
+            <Image src="/logo.png" alt="Stoct Logo" width={32} height={32} style={{ borderRadius: '6px' }} />
+            <Typography variant="h6" component="h1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              Stoct - Card Details
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {!isEditing && (
-              <>
-                <Button
-                  variant="outlined"
-                  onClick={handleEdit}
-                  startIcon={<EditIcon />}
-                  size="small"
-                  sx={{ 
-                    borderColor: 'primary.main',
-                    color: 'primary.main',
-                    '&:hover': {
-                      borderColor: 'primary.light',
-                      backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                    }
-                  }}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => setShareOpen(true)}
-                  startIcon={<ShareIcon />}
-                  size="small"
-                  sx={{ 
-                    borderColor: 'success.main',
-                    color: 'success.main',
-                    '&:hover': {
-                      borderColor: 'success.light',
-                      backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    }
-                  }}
-                >
-                  Share
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outlined"
-              onClick={() => router.push('/')}
-              startIcon={<BackIcon />}
-              size="small"
-              sx={{ 
-                borderColor: 'text.secondary',
-                color: 'text.primary',
-                '&:hover': {
-                  borderColor: 'text.primary',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                }
-              }}
+            <IconButton
+              onClick={handleEdit}
+              sx={{ color: 'text.primary' }}
+              title="Edit Card"
             >
-              Back
-            </Button>
+              <EditIcon />
+            </IconButton>
+            <IconButton
+              onClick={handleSecureShare}
+              sx={{ color: 'text.primary' }}
+              title="Share Securely"
+            >
+              <ShareIcon />
+            </IconButton>
             <ThemeToggle />
           </Box>
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="md" sx={{ py: 4 }}>
-
-        {/* Message */}
-        {message && (
-          <div style={{
-            background: message.includes('Error') ? 'rgba(244, 67, 54, 0.1)' : 'rgba(76, 175, 80, 0.1)',
-            border: message.includes('Error') ? '1px solid rgba(244, 67, 54, 0.3)' : '1px solid rgba(76, 175, 80, 0.3)',
-            color: message.includes('Error') ? '#F44336' : '#4CAF50',
-            padding: '12px 16px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            fontSize: '0.9rem',
-            animation: 'slideInDown 0.3s ease-out'
-          }}>
-            {message}
-          </div>
-        )}
-
-        {/* Card Details */}
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: 4, 
-            mb: 4, 
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 3,
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          {isEditing ? (
-            /* Edit Form - MUI */
-            <Box>
-              <Typography variant="h4" component="h2" sx={{ mb: 3, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <EditIcon /> Edit Card
+        {isEditing ? (
+          <Fade in timeout={300}>
+            <Paper 
+              elevation={0}
+              sx={{ 
+                p: 4, 
+                backgroundColor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              <Typography variant="h5" component="h2" sx={{ mb: 3, color: 'text.primary', fontWeight: 600 }}>
+                Edit Card
               </Typography>
               
-              <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <TextField
-                    fullWidth
-                    label="Brand"
-                    name="brand"
-                    value={editData.brand}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Enter card brand"
+              <CardForm 
+                onSubmit={handleSave}
+                isSubmitting={isSubmitting}
+                initialData={card}
+              />
+              
+              <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+                <Button
+                  variant="outlined"
+                  onClick={handleCancelEdit}
+                  disabled={isSubmitting}
+                  fullWidth
+                >
+                  Cancel
+                </Button>
+                {card.type === 'loyalty' && (
+                  <Button
                     variant="outlined"
-                  />
-                  
-                  <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                    <TextField
-                      fullWidth
-                      label="Number"
-                      name="number"
-                      value={editData.number}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Enter card number"
-                      variant="outlined"
-                      sx={{ flex: 1 }}
-                    />
-                    <Button
-                      variant="outlined"
-                      onClick={() => setShowScanner(true)}
-                      startIcon={<ScanIcon />}
-                      sx={{ 
-                        minWidth: { xs: '100%', sm: 'auto' },
-                        minHeight: 56,
-                        borderColor: 'primary.main',
-                        color: 'primary.main',
-                        '&:hover': {
-                          borderColor: 'primary.light',
-                          backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                        }
-                      }}
-                    >
-                      Scan Barcode
-                    </Button>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                    <TextField
-                      fullWidth
-                      label="PIN (Optional)"
-                      name="pin"
-                      value={editData.pin}
-                      onChange={handleInputChange}
-                      placeholder="Enter PIN"
-                      variant="outlined"
-                    />
-                    
-                    <FormControl component="fieldset">
-                      <FormLabel component="legend" sx={{ mb: 1, color: 'text.primary', fontSize: '0.875rem' }}>
-                        Barcode Type
-                      </FormLabel>
-                      <RadioGroup
-                        row
-                        name="barcodeType"
-                        value={editData.barcodeType}
-                        onChange={(e) => setEditData(prev => ({ ...prev, barcodeType: e.target.value as 'qr' | 'code128' }))}
-                      >
-                        <FormControlLabel 
-                          value="code128" 
-                          control={<Radio size="small" />} 
-                          label="Code 128"
-                          sx={{ 
-                            '& .MuiFormControlLabel-label': { 
-                              fontSize: '0.875rem',
-                              color: 'text.primary'
-                            }
-                          }}
-                        />
-                        <FormControlLabel 
-                          value="qr" 
-                          control={<Radio size="small" />} 
-                          label="QR Code"
-                          sx={{ 
-                            '& .MuiFormControlLabel-label': { 
-                              fontSize: '0.875rem',
-                              color: 'text.primary'
-                            }
-                          }}
-                        />
-                      </RadioGroup>
-                    </FormControl>
-                  </Box>
-                  
-                  <TextField
+                    onClick={() => setShowScanner(true)}
+                    disabled={isSubmitting}
+                    startIcon={<ScanIcon />}
                     fullWidth
-                    label="Notes (Optional)"
-                    name="notes"
-                    value={editData.notes}
-                    onChange={handleInputChange}
-                    placeholder="Add any additional notes about this card"
-                    variant="outlined"
-                    multiline
-                    rows={4}
+                  >
+                    Scan New Number
+                  </Button>
+                )}
+              </Box>
+            </Paper>
+          </Fade>
+        ) : (
+          <Fade in timeout={300}>
+            <Paper 
+              elevation={0}
+              sx={{ 
+                p: 6, 
+                backgroundColor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              {/* Card Header */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+                <Typography variant="h4" component="h1" sx={{ color: 'text.primary', fontWeight: 700 }}>
+                  {card.brand}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {getCardIcon()}
+                  <Chip 
+                    label={card.type?.toUpperCase()} 
+                    color={getCardTypeColor()}
+                    sx={{ fontWeight: 600 }}
                   />
                 </Box>
-
-                {/* Action Buttons */}
-                <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, mt: 2 }}>
+              </Box>
+              
+              {/* Card Content */}
+              {renderCardContent()}
+              
+              {/* Notes */}
+              {card.notes && (
+                <Box sx={{ mt: 4, p: 3, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
+                  <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
+                    Notes:
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: 'text.primary' }}>
+                    {card.notes}
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Action Buttons */}
+              <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
+                {card.type === 'otp' && !(card as OneTimePassword).isUsed && !isExpired ? (
                   <Button
                     variant="contained"
-                    onClick={handleSave}
-                    disabled={isSubmitting || !editData.brand.trim() || !editData.number.trim()}
-                    startIcon={<SaveIcon />}
+                    onClick={handleOTPUse}
+                    startIcon={<OTPIcon />}
+                    fullWidth
                     sx={{ 
-                      flex: { xs: 1, sm: 1 },
-                      minHeight: 48,
-                      backgroundColor: 'success.main',
+                      backgroundColor: 'warning.main',
                       '&:hover': {
-                        backgroundColor: 'success.dark',
-                      },
-                      '&:disabled': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        color: 'rgba(255, 255, 255, 0.5)',
+                        backgroundColor: 'warning.dark',
                       }
                     }}
                   >
-                    {isSubmitting ? 'Saving...' : 'Save Changes'}
+                    Use & Copy Password
                   </Button>
-                  
+                ) : (
                   <Button
-                    variant="outlined"
-                    onClick={handleCancelEdit}
-                    startIcon={<CancelIcon />}
-                    sx={{ 
-                      flex: { xs: 1, sm: 1 },
-                      minHeight: 48,
-                      borderColor: 'text.secondary',
-                      color: 'text.primary',
-                      '&:hover': {
-                        borderColor: 'text.primary',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      }
+                    variant="contained"
+                    onClick={() => {
+                      const textToCopy = card.type === 'loyalty' 
+                        ? (card as LoyaltyCard).number
+                        : card.type === 'credit'
+                        ? (card as CreditCard).cardNumber
+                        : (card as OneTimePassword).password;
+                      copyToClipboard(textToCopy)
+                        .then(() => {
+                          setNotification({
+                            open: true,
+                            message: 'Copied to clipboard!',
+                            severity: 'success'
+                          });
+                        });
                     }}
+                    startIcon={<CopyIcon />}
+                    fullWidth
                   >
-                    Cancel
+                    Copy {card.type === 'credit' ? 'Card Number' : 'Password'}
                   </Button>
-                </Box>
+                )}
               </Box>
-            </Box>
-          ) : (
-            /* View Mode - MUI */
-            <Fade in timeout={600}>
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                  <Typography variant="h4" component="h2" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                    {card.brand}
-                  </Typography>
-                  <Chip 
-                    label={card.barcodeType || 'Code 128'} 
-                    sx={{ 
-                      backgroundColor: 'rgba(33, 150, 243, 0.2)',
-                      color: 'primary.main',
-                      fontWeight: 600
-                    }}
-                  />
-                </Box>
-
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {/* Card Number */}
-                  <Box>
-                    <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>
-                      Card Number
-                    </Typography>
-                    <Paper 
-                      elevation={0}
-                      sx={{ 
-                        p: 2, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 2,
-                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 2
-                      }}
-                    >
-                      <Typography 
-                        variant="h6" 
-                        sx={{ 
-                          fontFamily: 'monospace',
-                          letterSpacing: '2px',
-                          color: 'text.primary',
-                          flex: 1,
-                          fontSize: '1.1rem'
-                        }}
-                      >
-                        {card.number}
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        onClick={() => copyData(card.number, 'Card number')}
-                        startIcon={<CopyIcon />}
-                        size="small"
-                        sx={{ 
-                          borderColor: 'primary.main',
-                          color: 'primary.main',
-                          '&:hover': {
-                            borderColor: 'primary.light',
-                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                          }
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </Paper>
-                  </Box>
-
-                  {/* PIN */}
-                  {card.pin && (
-                    <Box>
-                      <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>
-                        PIN
-                      </Typography>
-                      <Paper 
-                        elevation={0}
-                        sx={{ 
-                          p: 2, 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 2,
-                          background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(76, 175, 80, 0.05))',
-                          border: '1px solid',
-                          borderColor: 'success.main',
-                          borderRadius: 2
-                        }}
-                      >
-                        <Typography 
-                          variant="h6" 
-                          sx={{ 
-                            fontFamily: 'monospace',
-                            letterSpacing: '2px',
-                            color: 'text.primary',
-                            flex: 1,
-                            fontSize: '1.1rem'
-                          }}
-                        >
-                          {card.pin}
-                        </Typography>
-                        <Button
-                          variant="outlined"
-                          onClick={() => copyData(card.pin!, 'PIN')}
-                          startIcon={<CopyIcon />}
-                          size="small"
-                          sx={{ 
-                            borderColor: 'success.main',
-                            color: 'success.main',
-                            '&:hover': {
-                              borderColor: 'success.light',
-                              backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                            }
-                          }}
-                        >
-                          Copy
-                        </Button>
-                      </Paper>
-                    </Box>
-                  )}
-
-                  {/* Notes */}
-                  {card.notes && (
-                    <Box>
-                      <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>
-                        Notes
-                      </Typography>
-                      <Paper 
-                        elevation={0}
-                        sx={{ 
-                          p: 2,
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 2,
-                          background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05))',
-                          border: '1px solid',
-                          borderColor: 'warning.main',
-                          borderRadius: 2
-                        }}
-                      >
-                        <Typography 
-                          variant="body1" 
-                          sx={{ 
-                            color: 'text.primary',
-                            flex: 1,
-                            lineHeight: 1.5
-                          }}
-                        >
-                          {card.notes}
-                        </Typography>
-                        <Button
-                          variant="outlined"
-                          onClick={() => copyData(card.notes!, 'Notes')}
-                          startIcon={<CopyIcon />}
-                          size="small"
-                          sx={{ 
-                            borderColor: 'warning.main',
-                            color: 'warning.main',
-                            '&:hover': {
-                              borderColor: 'warning.light',
-                              backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                            }
-                          }}
-                        >
-                          Copy
-                        </Button>
-                      </Paper>
-                    </Box>
-                  )}
-
-                  {/* Barcode Section */}
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                      <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600 }}>
-                        Barcode
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                          variant="outlined"
-                          onClick={() => setShowScanner(true)}
-                          startIcon={<ScanIcon />}
-                          size="small"
-                          sx={{ 
-                            borderColor: 'primary.main',
-                            color: 'primary.main',
-                            '&:hover': {
-                              borderColor: 'primary.light',
-                              backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                            }
-                          }}
-                        >
-                          Scan
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          onClick={() => copyData(card.number, 'Barcode data')}
-                          startIcon={<CopyIcon />}
-                          size="small"
-                          sx={{ 
-                            borderColor: 'success.main',
-                            color: 'success.main',
-                            '&:hover': {
-                              borderColor: 'success.light',
-                              backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                            }
-                          }}
-                        >
-                          Copy Data
-                        </Button>
-                      </Box>
-                    </Box>
-                    
-                    <Paper 
-                      elevation={0}
-                      sx={{ 
-                        p: 3,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 3
-                      }}
-                    >
-                      <Barcode
-                        data={card.number}
-                        type={card.barcodeType || 'code128'}
-                        width={300}
-                        height={80}
-                      />
-                    </Paper>
-                  </Box>
-
-                  {/* Card Info */}
-                  <Paper 
-                    elevation={0}
-                    sx={{ 
-                      p: 2,
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: 2,
-                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01))',
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 2,
-                      fontSize: '0.85rem',
-                      color: 'text.primary'
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        Created: {new Date(card.createdAt).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        Updated: {new Date(card.updatedAt).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                  </Paper>
-                </Box>
+              
+              {/* Card Info */}
+              <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
+                  Created: {new Date(card.createdAt).toLocaleDateString()} • 
+                  Updated: {new Date(card.updatedAt).toLocaleDateString()}
+                </Typography>
               </Box>
-            </Fade>
-          )}
-        </Paper>
+            </Paper>
+          </Fade>
+        )}
       </Container>
-
-      {/* Share modal */}
-      <Modal open={shareOpen} title="Share Card Securely" onClose={() => setShareOpen(false)}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Typography variant="body2" sx={{ color: 'text.primary', mb: 1 }}>Enter a PIN (4+ characters)</Typography>
-          <input
-            type="password"
-            value={sharePin}
-            onChange={(e) => setSharePin(e.target.value)}
-            placeholder="PIN"
-            style={{
-              padding: '12px 14px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              background: 'rgba(255,255,255,0.1)',
-              color: '#fff'
-            }}
-          />
-          <button
-            onClick={handleSecureShare}
-            style={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%)',
-              color: '#000',
-              border: 'none',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: 700
-            }}
-          >
-            Generate Link
-          </button>
-
-          {shareLink && (
-            <div style={{
-              marginTop: '8px',
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: '8px',
-              padding: '10px',
-              wordBreak: 'break-all'
-            }}>
-              <div style={{ marginBottom: '8px', fontSize: '0.9rem', color: '#b0b0b0' }}>
-                Secure link generated:
-              </div>
-              <div style={{ 
-                background: 'rgba(0,0,0,0.3)', 
-                padding: '8px', 
-                borderRadius: '4px', 
-                fontFamily: 'monospace',
-                fontSize: '0.85rem',
-                wordBreak: 'break-all',
-                marginBottom: '8px'
-              }}>
-                {shareLink}
-              </div>
-              <button
-                onClick={handleCopyShareLink}
-                style={{
-                  background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  fontWeight: '600',
-                  transition: 'all 0.2s ease',
-                  width: '100%'
-                }}
-              >
-                📋 Copy Link
-              </button>
-            </div>
-          )}
-        </div>
-      </Modal>
 
       {/* Scanner Modal */}
       {showScanner && (
@@ -956,104 +724,72 @@ export default function CardPage({ params }: CardPageProps) {
         />
       )}
 
-      <style jsx>{`
-        @keyframes fadeInDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
+      {/* Share Dialog */}
+      <Dialog 
+        open={showShareDialog} 
+        onClose={() => setShowShareDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+            border: '1px solid',
+            borderColor: 'divider'
           }
-          to {
-            opacity: 1;
-            transform: translateY(0);
+        }}
+        BackdropProps={{
+          sx: {
+            backgroundColor: 'rgba(0,0,0,0.9)'
           }
-        }
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes slideInDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        /* Mobile Responsive Styles */
-        @media (max-width: 768px) {
-          .container {
-            padding: 16px !important;
-          }
-          
-          /* Header buttons - stack on mobile */
-          .header-buttons {
-            flex-direction: column !important;
-            width: 100% !important;
-          }
-          
-          .header-buttons > div {
-            width: 100% !important;
-          }
-          
-          /* Make scan button full width on mobile */
-          .scan-button-container {
-            flex-direction: column !important;
-          }
-          
-          .scan-button-container button {
-            width: 100% !important;
-            margin-top: 8px;
-          }
-          
-          /* Make PIN and Barcode Type stack on very small screens */
-          .responsive-grid {
-            grid-template-columns: 1fr !important;
-          }
-          
-          /* Improve button spacing on mobile */
-          .action-buttons {
-            gap: 8px !important;
-          }
-          
-          /* Better touch targets */
-          input, textarea, select, button {
-            min-height: 48px !important;
-          }
-        }
-        
-        @media (min-width: 769px) {
-          /* Desktop: header buttons in a row */
-          .header-buttons {
-            flex-direction: row !important;
-            align-items: center !important;
-          }
-          
-          .header-buttons > div {
-            flex-direction: row !important;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          /* Extra small screens */
-          .container {
-            padding: 12px !important;
-          }
-          
-          /* Reduce font sizes slightly on very small screens */
-          h1, h2 {
-            font-size: 1.3rem !important;
-          }
-        }
-      `}</style>
+        }}
+      >
+        <DialogTitle>Secure Share Link</DialogTitle>
+        <DialogContent sx={{ backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            This link is encrypted and can only be opened with the correct PIN. The link will be invalidated after first use.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              value={shareLink}
+              InputProps={{ readOnly: true }}
+              variant="outlined"
+              size="small"
+              sx={{
+                '& .MuiInputBase-root': {
+                  backgroundColor: (t) => t.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff'
+                }
+              }}
+            />
+            <Button
+              variant="outlined"
+              onClick={handleCopyShareLink}
+              startIcon={<CopyIcon />}
+            >
+              Copy
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowShareDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Notification System */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={4000}
+        onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

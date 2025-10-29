@@ -65,7 +65,7 @@ export async function setupPasscode(passcode: string): Promise<void> {
   const masterKey = await hashPasscode(passcode, 'stoct-master-salt');
   const encryptedData = await encryptJsonWithPin(passcodeData, masterKey);
   
-  localStorage.setItem(PASSCODE_KEY, encryptedData);
+  localStorage.setItem(PASSCODE_KEY, JSON.stringify(encryptedData));
   
   // Initialize session
   await initializeSession();
@@ -76,13 +76,14 @@ export async function setupPasscode(passcode: string): Promise<void> {
  */
 export async function verifyPasscode(passcode: string): Promise<boolean> {
   try {
-    const encryptedData = localStorage.getItem(PASSCODE_KEY);
-    if (!encryptedData) {
+    const encryptedDataStr = localStorage.getItem(PASSCODE_KEY);
+    if (!encryptedDataStr) {
       return false;
     }
 
+    const encryptedData = JSON.parse(encryptedDataStr);
     const masterKey = await hashPasscode(passcode, 'stoct-master-salt');
-    const passcodeData: PasscodeData = await decryptJsonWithPin(encryptedData, masterKey);
+    const passcodeData = await decryptJsonWithPin(encryptedData, masterKey) as PasscodeData;
     
     const hashedPasscode = await hashPasscode(passcode, passcodeData.salt);
     return hashedPasscode === passcodeData.encryptedPasscode;
@@ -288,7 +289,7 @@ export async function registerBiometricCredential(): Promise<boolean> {
     if (credential) {
       // Save the credential for future use
       const credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
-      const publicKey = btoa(String.fromCharCode(...new Uint8Array((credential.response as AuthenticatorAttestationResponse).publicKey!)));
+      const publicKey = btoa(String.fromCharCode(...new Uint8Array((credential.response as AuthenticatorAttestationResponse).getPublicKey()!)));
       
       saveBiometricCredential(credentialId, publicKey);
       return true;

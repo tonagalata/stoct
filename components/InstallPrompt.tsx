@@ -144,10 +144,13 @@ export function InstallPrompt({ showInfoIcon = true, forceShowDialog = false, on
         PaperProps={{
           sx: {
             borderRadius: 3,
-            backgroundColor: '#ffffff',
+            backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
             border: '1px solid',
             borderColor: 'divider'
           }
+        }}
+        BackdropProps={{
+          sx: { backgroundColor: 'rgba(0,0,0,0.9)' }
         }}
       >
         <DialogTitle
@@ -169,7 +172,7 @@ export function InstallPrompt({ showInfoIcon = true, forceShowDialog = false, on
           </IconButton>
         </DialogTitle>
         
-        <DialogContent>
+        <DialogContent sx={{ backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }}>
           <Typography variant="body1" sx={{ mb: 2, color: 'text.primary' }}>
             Transform Stoct into a native-like app experience! Installing Stoct as a Progressive Web App gives you:
           </Typography>
@@ -255,10 +258,13 @@ export function InstallPrompt({ showInfoIcon = true, forceShowDialog = false, on
           PaperProps={{
             sx: {
               borderRadius: 3,
-              backgroundColor: '#ffffff',
+              backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
               border: '1px solid',
               borderColor: 'divider'
             }
+          }}
+          BackdropProps={{
+            sx: { backgroundColor: 'rgba(0,0,0,0.9)' }
           }}
         >
           <DialogTitle
@@ -280,7 +286,7 @@ export function InstallPrompt({ showInfoIcon = true, forceShowDialog = false, on
             </IconButton>
           </DialogTitle>
           
-          <DialogContent>
+          <DialogContent sx={{ backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }}>
             <Typography variant="body1" sx={{ mb: 2, color: 'text.primary' }}>
               Great! Stoct is already installed as a Progressive Web App on your device.
             </Typography>
@@ -369,10 +375,13 @@ export function InstallPrompt({ showInfoIcon = true, forceShowDialog = false, on
           PaperProps={{
             sx: {
               borderRadius: 3,
-              backgroundColor: '#ffffff',
+              backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
               border: '1px solid',
               borderColor: 'divider'
             }
+          }}
+          BackdropProps={{
+            sx: { backgroundColor: 'rgba(0,0,0,0.9)' }
           }}
         >
           <DialogTitle
@@ -513,8 +522,7 @@ export function InstallPrompt({ showInfoIcon = true, forceShowDialog = false, on
         PaperProps={{
           sx: {
             borderRadius: 3,
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
-            backdropFilter: 'blur(20px)',
+            backgroundColor: 'background.paper',
             border: '1px solid',
             borderColor: 'divider'
           }
@@ -539,7 +547,7 @@ export function InstallPrompt({ showInfoIcon = true, forceShowDialog = false, on
           </IconButton>
         </DialogTitle>
         
-        <DialogContent>
+        <DialogContent sx={{ backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }}>
           <Typography variant="body1" sx={{ mb: 2, color: 'text.primary' }}>
             Transform Stoct into a native-like app experience! Installing Stoct as a Progressive Web App gives you:
           </Typography>

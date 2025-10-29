@@ -26,6 +26,8 @@ import {
 } from '@mui/icons-material';
 import { CardType, CardInput, LoyaltyCardInput, CreditCardInput, OneTimePasswordInput } from '@/lib/types';
 import { CardTypeSelector } from './CardTypeSelector';
+import { validateCardNumber, formatCardNumber, detectCardIssuer } from '@/lib/credit-card-utils';
+import { PaymentBrandIcon } from './icons/PaymentBrandIcon';
 
 interface CardFormProps {
   onSubmit: (cardInput: CardInput) => void;
@@ -40,7 +42,7 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
     number: '',
     pin: '',
     notes: '',
-    barcodeType: 'code128' as 'qr' | 'code128',
+    barcodeType: undefined as 'qr' | 'code128' | undefined,
     // Credit card fields
     cardNumber: '',
     expiryMonth: '',
@@ -54,6 +56,12 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showCVV, setShowCVV] = useState(false);
+  const [cardValidation, setCardValidation] = useState<{
+    isValid: boolean;
+    issuer: any;
+    formatted: string;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -69,7 +77,23 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
     }
   }, [initialData]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    
+    // Special handling for credit card number
+    if (name === 'cardNumber') {
+      const digitsOnly = value.replace(/\D/g, '');
+      const issuerKey = detectCardIssuer(digitsOnly) as any;
+      const formatted = formatCardNumber(digitsOnly);
+      const validation = validateCardNumber(digitsOnly);
+      setCardValidation(validation);
+      setFormData(prev => ({ ...prev, [name]: formatted }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleSelectChange = (e: any) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -106,7 +130,7 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
         number: formData.number.trim(),
         pin: formData.pin.trim() || undefined,
         notes: formData.notes.trim() || undefined,
-        barcodeType: formData.barcodeType,
+        barcodeType: formData.barcodeType || undefined,
       } as LoyaltyCardInput;
     }
     
@@ -117,7 +141,8 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
     if (!formData.brand.trim()) return false;
     
     if (cardType === 'credit') {
-      return formData.cardNumber.trim() && formData.expiryMonth && formData.expiryYear;
+      return formData.cardNumber.trim() && formData.expiryMonth && formData.expiryYear && 
+             cardValidation?.isValid === true;
     } else if (cardType === 'otp') {
       return formData.password.trim() && formData.description.trim();
     } else {
@@ -188,35 +213,95 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
             size="small"
           />
           
-          <FormControl fullWidth size="small">
-            <InputLabel>Barcode Type</InputLabel>
-            <Select
-              name="barcodeType"
-              value={formData.barcodeType}
-              onChange={handleInputChange}
-              label="Barcode Type"
-            >
-              <MenuItem value="code128">Code 128</MenuItem>
-              <MenuItem value="qr">QR Code</MenuItem>
-            </Select>
+          <FormControl component="fieldset" fullWidth>
+            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+              Barcode Type (Optional)
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="radio"
+                  id="barcode-none"
+                  name="barcodeType"
+                  value=""
+                  checked={!formData.barcodeType}
+                  onChange={handleInputChange}
+                  style={{ marginRight: '8px' }}
+                />
+                <label htmlFor="barcode-none" style={{ cursor: 'pointer' }}>
+                  None
+                </label>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="radio"
+                  id="barcode-code128"
+                  name="barcodeType"
+                  value="code128"
+                  checked={formData.barcodeType === 'code128'}
+                  onChange={handleInputChange}
+                  style={{ marginRight: '8px' }}
+                />
+                <label htmlFor="barcode-code128" style={{ cursor: 'pointer' }}>
+                  Code 128
+                </label>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="radio"
+                  id="barcode-qr"
+                  name="barcodeType"
+                  value="qr"
+                  checked={formData.barcodeType === 'qr'}
+                  onChange={handleInputChange}
+                  style={{ marginRight: '8px' }}
+                />
+                <label htmlFor="barcode-qr" style={{ cursor: 'pointer' }}>
+                  QR Code
+                </label>
+              </Box>
+            </Box>
           </FormControl>
         </>
       )}
 
       {cardType === 'credit' && (
         <>
-          <TextField
-            fullWidth
-            label="Card Number"
-            name="cardNumber"
-            value={formData.cardNumber}
-            onChange={handleInputChange}
-            required
-            placeholder="1234 5678 9012 3456"
-            variant="outlined"
-            size="small"
-            inputProps={{ maxLength: 19 }}
-          />
+          <Box>
+            <TextField
+              fullWidth
+              label="Card Number"
+              name="cardNumber"
+              value={formData.cardNumber}
+              onChange={handleInputChange}
+              required
+              placeholder="1234 5678 9012 3456"
+              variant="outlined"
+              size="small"
+              inputProps={{ maxLength: 19 }}
+              error={cardValidation ? !cardValidation.isValid : false}
+              helperText={cardValidation?.error}
+              InputProps={{
+                endAdornment: cardValidation?.issuer && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 1 }}>
+                    <PaymentBrandIcon issuer={(detectCardIssuer(formData.cardNumber) as any) || 'unknown'} size={28} />
+                    <Typography variant="body2" sx={{ 
+                      color: cardValidation.isValid ? 'success.main' : 'error.main',
+                      fontWeight: 600,
+                      fontSize: '0.75rem'
+                    }}>
+                      {cardValidation.issuer.name}
+                    </Typography>
+                  </Box>
+                )
+              }}
+            />
+            {cardValidation?.formatted && cardValidation.formatted !== formData.cardNumber && (
+              <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                Formatted: {cardValidation.formatted}
+              </Typography>
+            )}
+          </Box>
           
           <Box sx={{ display: 'flex', gap: 2 }}>
             <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -224,12 +309,34 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
               <Select
                 name="expiryMonth"
                 value={formData.expiryMonth}
-                onChange={handleInputChange}
+                onChange={handleSelectChange}
                 label="Expiry Month"
                 required
+                sx={{ 
+                  backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+                  '& .MuiSelect-select': {
+                    backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff'
+                  }
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+                      border: '1px solid',
+                      borderColor: 'divider'
+                    }
+                  },
+                  MenuListProps: {
+                    sx: { backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }
+                  }
+                }}
               >
                 {generateMonths().map(month => (
-                  <MenuItem key={month.value} value={month.value}>
+                  <MenuItem 
+                    key={month.value} 
+                    value={month.value}
+                    sx={{ backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }}
+                  >
                     {month.label}
                   </MenuItem>
                 ))}
@@ -241,12 +348,34 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
               <Select
                 name="expiryYear"
                 value={formData.expiryYear}
-                onChange={handleInputChange}
+                onChange={handleSelectChange}
                 label="Expiry Year"
                 required
+                sx={{ 
+                  backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+                  '& .MuiSelect-select': {
+                    backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff'
+                  }
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+                      border: '1px solid',
+                      borderColor: 'divider'
+                    }
+                  },
+                  MenuListProps: {
+                    sx: { backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }
+                  }
+                }}
               >
                 {generateYears().map(year => (
-                  <MenuItem key={year.value} value={year.value}>
+                  <MenuItem 
+                    key={year.value} 
+                    value={year.value}
+                    sx={{ backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }}
+                  >
                     {year.value}
                   </MenuItem>
                 ))}
@@ -342,8 +471,26 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData }: CardFo
               <Select
                 name="expiresInHours"
                 value={formData.expiresInHours}
-                onChange={handleInputChange}
+                onChange={handleSelectChange}
                 label="Expires In"
+                sx={{ 
+                  backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+                  '& .MuiSelect-select': {
+                    backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff'
+                  }
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+                      border: '1px solid',
+                      borderColor: 'divider'
+                    }
+                  },
+                  MenuListProps: {
+                    sx: { backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }
+                  }
+                }}
               >
                 <MenuItem value={1}>1 Hour</MenuItem>
                 <MenuItem value={6}>6 Hours</MenuItem>

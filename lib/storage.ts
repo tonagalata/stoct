@@ -64,19 +64,37 @@ export const getCard = (id: string): Card | null => {
   return getCardById(id);
 };
 
-// Find a card by exact number match (after trimming)
+// Find a loyalty card by exact number match (after trimming)
 export const findCardByNumber = (number: string): Card | null => {
   const normalized = number.trim();
   if (!normalized) return null;
   const cards = getAllCards();
-  const found = cards.find(c => (c.number || '').trim() === normalized);
+  const found = cards.find(c => c.type === 'loyalty' && (c as LoyaltyCard).number.trim() === normalized);
+  return found || null;
+};
+
+// Find a credit card by exact number match (digits only)
+export const findCreditByCardNumber = (cardNumber: string): Card | null => {
+  const normalized = cardNumber.replace(/\D/g, '');
+  if (!normalized) return null;
+  const cards = getAllCards();
+  const found = cards.find(c => c.type === 'credit' && (c as CreditCard).cardNumber.replace(/\D/g, '') === normalized);
   return found || null;
 };
 
 export const createCard = (cardInput: CardInput): Card => {
-  // Enforce uniqueness by number (only for loyalty cards)
+  // Enforce uniqueness by number for loyalty and credit cards
   if (cardInput.type === 'loyalty') {
     const existing = findCardByNumber(cardInput.number);
+    if (existing) {
+      const err: any = new Error('Duplicate card number');
+      err.code = 'DUPLICATE_CARD';
+      err.existingId = existing.id;
+      throw err;
+    }
+  }
+  if (cardInput.type === 'credit') {
+    const existing = findCreditByCardNumber(cardInput.cardNumber);
     if (existing) {
       const err: any = new Error('Duplicate card number');
       err.code = 'DUPLICATE_CARD';
@@ -144,13 +162,26 @@ export const createCard = (cardInput: CardInput): Card => {
 };
 
 export const updateCard = (card: Card): Card => {
-  // Enforce uniqueness by number, excluding this card's id
-  const existing = findCardByNumber(card.number);
-  if (existing && existing.id !== card.id) {
-    const err: any = new Error('Duplicate card number');
-    err.code = 'DUPLICATE_CARD';
-    err.existingId = existing.id;
-    throw err;
+  // Enforce uniqueness by number, excluding this card's id (loyalty and credit)
+  if (card.type === 'loyalty') {
+    const loyaltyCard = card as LoyaltyCard;
+    const existing = findCardByNumber(loyaltyCard.number);
+    if (existing && existing.id !== card.id) {
+      const err: any = new Error('Duplicate card number');
+      err.code = 'DUPLICATE_CARD';
+      err.existingId = existing.id;
+      throw err;
+    }
+  }
+  if (card.type === 'credit') {
+    const creditCard = card as CreditCard;
+    const existing = findCreditByCardNumber(creditCard.cardNumber);
+    if (existing && existing.id !== card.id) {
+      const err: any = new Error('Duplicate card number');
+      err.code = 'DUPLICATE_CARD';
+      err.existingId = existing.id;
+      throw err;
+    }
   }
 
   const updatedCard = {
@@ -243,8 +274,19 @@ export const importAllCards = (jsonData: string): { success: boolean; count: num
     
     // Validate each card has required fields
     for (const card of data.cards) {
-      if (!card.id || !card.brand || !card.number) {
+      if (!card.id || !card.brand || !card.type) {
         return { success: false, count: 0, error: 'Invalid card data: missing required fields' };
+      }
+      
+      // Validate type-specific required fields
+      if (card.type === 'loyalty' && !(card as LoyaltyCard).number) {
+        return { success: false, count: 0, error: 'Invalid loyalty card: missing number' };
+      }
+      if (card.type === 'credit' && !(card as CreditCard).cardNumber) {
+        return { success: false, count: 0, error: 'Invalid credit card: missing card number' };
+      }
+      if (card.type === 'otp' && !(card as OneTimePassword).password) {
+        return { success: false, count: 0, error: 'Invalid OTP: missing password' };
       }
     }
     

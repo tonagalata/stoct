@@ -87,7 +87,7 @@ export function CardTypeSelector({ value, onChange, disabled = false }: CardType
               border: '1px solid',
               borderColor: value === cardType.type ? `${cardType.color}.main` : 'divider',
               borderRadius: 2,
-              backgroundColor: value === cardType.type ? `${cardType.color}.main` + '10' : 'transparent',
+              backgroundColor: value === cardType.type ? `${cardType.color}.main` + '20' : 'background.paper',
               '&:hover': {
                 backgroundColor: value === cardType.type ? `${cardType.color}.main` + '15' : 'action.hover',
               },

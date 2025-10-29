@@ -51,6 +51,7 @@ export default function SecureSharePage() {
     try {
       // Expecting a CardInput-like object
       const card = createCard({
+        type: 'loyalty',
         brand: String(preview.brand || 'Shared Card'),
         number: String(preview.number || ''),
         pin: preview.pin ? String(preview.pin) : undefined,
@@ -183,7 +184,7 @@ export default function SecureSharePage() {
                 padding: '10px 12px',
                 borderRadius: '8px',
                 border: '1px solid rgba(255,255,255,0.2)',
-                background: 'transparent',
+                backgroundColor: 'background.paper',
                 color: '#fff',
                 cursor: 'pointer'
               }}

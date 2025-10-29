@@ -136,17 +136,16 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
       PaperProps={{
         sx: {
           borderRadius: 3,
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
           boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
           overflow: 'hidden'
         }
       }}
       BackdropProps={{
         sx: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          backdropFilter: 'blur(4px)'
+          backgroundColor: 'rgba(0, 0, 0, 0.9)'
         }
       }}
     >
@@ -287,10 +286,9 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
                 position: 'absolute',
                 top: 12,
                 right: 12,
-                backgroundColor: isScanning ? 'rgba(76, 175, 80, 0.9)' : 'rgba(0, 0, 0, 0.7)',
+                backgroundColor: isScanning ? 'rgba(76, 175, 80, 0.9)' : 'rgba(0, 0, 0, 0.8)',
                 color: 'white',
-                fontWeight: 600,
-                backdropFilter: 'blur(10px)'
+                fontWeight: 600
               }}
             />
           </Paper>

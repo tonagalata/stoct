@@ -42,22 +42,34 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
   const [step, setStep] = useState<'setup' | 'biometric'>('setup');
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Check if biometric authentication is supported and already set up
     const checkBiometricSupport = async () => {
       try {
         // Check if WebAuthn is available
         if (window.PublicKeyCredential) {
           const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-          setBiometricSupported(available);
+          if (isMounted) {
+            setBiometricSupported(available);
+          }
         } else {
-          setBiometricSupported(false);
+          if (isMounted) {
+            setBiometricSupported(false);
+          }
         }
       } catch {
-        setBiometricSupported(false);
+        if (isMounted) {
+          setBiometricSupported(false);
+        }
       }
     };
     
     checkBiometricSupport();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handlePasscodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {

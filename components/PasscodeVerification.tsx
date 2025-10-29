@@ -53,6 +53,8 @@ export function PasscodeVerification({ open, onSuccess, onSkip }: PasscodeVerifi
   }, [open]);
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Check if biometric authentication is supported and set up
     const checkBiometricSupport = async () => {
       try {
@@ -60,16 +62,26 @@ export function PasscodeVerification({ open, onSuccess, onSkip }: PasscodeVerifi
         if (window.PublicKeyCredential) {
           const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
           const isSetup = isBiometricSetup();
-          setBiometricSupported(available && isSetup);
+          if (isMounted) {
+            setBiometricSupported(available && isSetup);
+          }
         } else {
-          setBiometricSupported(false);
+          if (isMounted) {
+            setBiometricSupported(false);
+          }
         }
       } catch {
-        setBiometricSupported(false);
+        if (isMounted) {
+          setBiometricSupported(false);
+        }
       }
     };
     
     checkBiometricSupport();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handlePasscodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {

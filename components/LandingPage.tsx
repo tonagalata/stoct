@@ -216,7 +216,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               textAlign: 'center',
               transition: 'all 0.3s ease',
               transform: currentFeature === index ? 'scale(1.05)' : 'scale(1)',
-              backdropFilter: 'blur(10px)',
               minWidth: '120px'
             }}
           >

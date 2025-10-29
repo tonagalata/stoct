@@ -25,11 +25,7 @@ import {
   Alert,
   Snackbar,
   Tooltip,
-  Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem
+  Chip
 } from '@mui/material';
 import { 
   QrCodeScanner as ScanIcon, 
@@ -255,10 +251,9 @@ export default function HomePage() {
         position="static" 
         elevation={0}
         sx={{ 
-          backgroundColor: 'transparent',
+          backgroundColor: 'background.paper',
           borderBottom: '1px solid',
-          borderColor: 'divider',
-          backdropFilter: 'blur(10px)'
+          borderColor: 'divider'
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
@@ -307,25 +302,40 @@ export default function HomePage() {
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 Filter by type:
               </Typography>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Card Type</InputLabel>
-                <Select
-                  value={selectedCardType}
-                  onChange={(e) => setSelectedCardType(e.target.value as CardType | 'all')}
-                  label="Card Type"
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  variant={selectedCardType === 'all' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setSelectedCardType('all')}
+                  sx={{ minWidth: 'auto' }}
                 >
-                  <MenuItem value="all">All Cards ({cards.length})</MenuItem>
-                  <MenuItem value="loyalty">
-                    Loyalty Cards ({cards.filter(c => c.type === 'loyalty').length})
-                  </MenuItem>
-                  <MenuItem value="credit">
-                    Credit Cards ({cards.filter(c => c.type === 'credit').length})
-                  </MenuItem>
-                  <MenuItem value="otp">
-                    One-Time Passwords ({cards.filter(c => c.type === 'otp').length})
-                  </MenuItem>
-                </Select>
-              </FormControl>
+                  All ({cards.length})
+                </Button>
+                <Button
+                  variant={selectedCardType === 'loyalty' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setSelectedCardType('loyalty')}
+                  sx={{ minWidth: 'auto' }}
+                >
+                  Loyalty ({cards.filter(c => c.type === 'loyalty').length})
+                </Button>
+                <Button
+                  variant={selectedCardType === 'credit' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setSelectedCardType('credit')}
+                  sx={{ minWidth: 'auto' }}
+                >
+                  Credit ({cards.filter(c => c.type === 'credit').length})
+                </Button>
+                <Button
+                  variant={selectedCardType === 'otp' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setSelectedCardType('otp')}
+                  sx={{ minWidth: 'auto' }}
+                >
+                  OTP ({cards.filter(c => c.type === 'otp').length})
+                </Button>
+              </Box>
             </Box>
           </Paper>
         )}
@@ -340,11 +350,10 @@ export default function HomePage() {
                 sx={{ 
                   p: 4, 
                   mb: 4,
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  backgroundColor: 'background.paper',
                   border: '1px solid',
                   borderColor: 'divider',
                   borderRadius: 3,
-                  backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                 }}
               >
@@ -418,11 +427,10 @@ export default function HomePage() {
                 sx={{ 
                   p: 3, 
                   mb: 4, 
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  backgroundColor: 'background.paper',
                   border: '1px solid',
                   borderColor: 'divider',
                   borderRadius: 3,
-                  backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                 }}
               >
@@ -477,11 +485,10 @@ export default function HomePage() {
                 sx={{ 
                   p: 3, 
                   mb: 4, 
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  backgroundColor: 'background.paper',
                   border: '1px solid',
                   borderColor: 'divider',
                   borderRadius: 3,
-                  backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                 }}
               >
@@ -533,11 +540,10 @@ export default function HomePage() {
                 sx={{ 
                   p: 4, 
                   mb: 4,
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  backgroundColor: 'background.paper',
                   border: '1px solid',
                   borderColor: 'divider',
                   borderRadius: 3,
-                  backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                 }}
               >

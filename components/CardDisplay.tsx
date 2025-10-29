@@ -29,6 +29,8 @@ import { Card, LoyaltyCard, CreditCard, OneTimePassword } from '@/lib/types';
 import { Barcode } from '@/lib/barcode';
 import { copyToClipboard } from '@/lib/clipboard';
 import { markOTPAsUsed } from '@/lib/storage';
+import { formatCardNumber, getCardIssuer, maskCardNumber, detectCardIssuer } from '@/lib/credit-card-utils';
+import { PaymentBrandIcon } from './icons/PaymentBrandIcon';
 
 interface CardDisplayProps {
   card: Card;
@@ -95,6 +97,8 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
     if (card.type === 'otp') {
       markOTPAsUsed(card.id);
       onCopy((card as OneTimePassword).password, 'One-time password');
+      // Auto-delete the OTP after use
+      onDelete(card);
     }
   };
 
@@ -113,18 +117,33 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
         const loyaltyCard = card as LoyaltyCard;
         return (
           <>
-            <Typography 
-              variant="body1" 
-              sx={{ 
-                mb: 2, 
-                fontFamily: 'monospace',
-                letterSpacing: '1px',
-                color: 'text.primary',
-                fontSize: '0.9rem'
+            <Box
+              sx={{
+                mb: 2,
+                p: 1.5,
+                backgroundColor: 'action.hover',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                maxHeight: '80px',
+                overflowY: 'auto',
+                wordBreak: 'break-all',
+                wordWrap: 'break-word'
               }}
             >
-              {maskCardNumber(loyaltyCard.number)}
-            </Typography>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  fontFamily: 'monospace',
+                  letterSpacing: '1px',
+                  color: 'text.primary',
+                  fontSize: '0.9rem',
+                  textAlign: 'center'
+                }}
+              >
+                {maskCardNumber(loyaltyCard.number)}
+              </Typography>
+            </Box>
             
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
               <Barcode
@@ -137,7 +156,7 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
             
             {loyaltyCard.pin && (
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
-                PIN: {loyaltyCard.pin}
+                PIN: •••
               </Typography>
             )}
           </>
@@ -145,20 +164,46 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
 
       case 'credit':
         const creditCard = card as CreditCard;
+        const issuer = getCardIssuer(creditCard.cardNumber);
         return (
           <>
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                mb: 2, 
-                fontFamily: 'monospace',
-                letterSpacing: '2px',
-                color: 'text.primary',
-                fontSize: '1.1rem'
+            <Box
+              sx={{
+                mb: 2,
+                p: 1.5,
+                backgroundColor: 'action.hover',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                maxHeight: '80px',
+                overflowY: 'auto',
+                wordBreak: 'break-all',
+                wordWrap: 'break-word'
               }}
             >
-              {formatCardNumber(maskCardNumber(creditCard.cardNumber))}
-            </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                <PaymentBrandIcon issuer={(detectCardIssuer(creditCard.cardNumber) as any) || 'unknown'} size={28} />
+                <Typography variant="body2" sx={{ 
+                  color: issuer.color,
+                  fontWeight: 600,
+                  fontSize: '0.8rem'
+                }}>
+                  {issuer.name}
+                </Typography>
+              </Box>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontFamily: 'monospace',
+                  letterSpacing: '2px',
+                  color: 'text.primary',
+                  fontSize: '1.1rem',
+                  textAlign: 'center'
+                }}
+              >
+                {formatCardNumber(maskCardNumber(creditCard.cardNumber))}
+              </Typography>
+            </Box>
             
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -166,7 +211,7 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
               </Typography>
               {creditCard.cvv && (
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  CVV: {creditCard.cvv}
+                  CVV: •••
                 </Typography>
               )}
             </Box>
@@ -183,19 +228,34 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
         const otpCard = card as OneTimePassword;
         return (
           <>
-            <Typography 
-              variant="h5" 
-              sx={{ 
-                mb: 2, 
-                fontFamily: 'monospace',
-                letterSpacing: '2px',
-                color: 'text.primary',
-                textAlign: 'center',
-                fontWeight: 'bold'
+            <Box
+              sx={{
+                mb: 2,
+                p: 2,
+                backgroundColor: 'action.hover',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                maxHeight: '120px',
+                overflowY: 'auto',
+                wordBreak: 'break-all',
+                wordWrap: 'break-word'
               }}
             >
-              {otpCard.password}
-            </Typography>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontFamily: 'monospace',
+                  letterSpacing: '1px',
+                  color: 'text.primary',
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  lineHeight: 1.2
+                }}
+              >
+                {otpCard.password}
+              </Typography>
+            </Box>
             
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, textAlign: 'center' }}>
               {otpCard.description}
@@ -252,10 +312,9 @@ export function CardDisplay({ card, onView, onDelete, onCopy }: CardDisplayProps
   return (
     <MuiCard 
       sx={{ 
-        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+        backgroundColor: 'background.paper',
         border: '1px solid',
         borderColor: 'divider',
-        backdropFilter: 'blur(10px)',
         transition: 'all 0.3s ease',
         '&:hover': {
           transform: 'translateY(-4px)',
