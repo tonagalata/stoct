@@ -49,15 +49,40 @@ export default function SecureSharePage() {
   const handleImport = () => {
     if (!preview) return;
     try {
-      // Expecting a CardInput-like object
-      const card = createCard({
-        type: 'loyalty',
-        brand: String(preview.brand || 'Shared Card'),
-        number: String(preview.number || ''),
-        pin: preview.pin ? String(preview.pin) : undefined,
-        notes: preview.notes ? String(preview.notes) : undefined,
-        barcodeType: (preview.barcodeType === 'qr' ? 'qr' : 'code128')
-      });
+      // Handle different card types
+      let cardInput: any;
+      
+      if (preview.type === 'credit') {
+        cardInput = {
+          type: 'credit',
+          brand: String(preview.brand || 'Shared Credit Card'),
+          cardNumber: String(preview.cardNumber || ''),
+          expiryMonth: preview.expiryMonth || '',
+          expiryYear: preview.expiryYear || '',
+          cvv: preview.cvv ? String(preview.cvv) : undefined,
+          notes: preview.notes ? String(preview.notes) : undefined
+        };
+      } else if (preview.type === 'otp') {
+        cardInput = {
+          type: 'otp',
+          description: String(preview.description || 'Shared OTP'),
+          password: String(preview.password || ''),
+          expiresAt: preview.expiresAt || Date.now() + 24 * 60 * 60 * 1000, // Default 24h if not set
+          notes: preview.notes ? String(preview.notes) : undefined
+        };
+      } else {
+        // Default to loyalty card
+        cardInput = {
+          type: 'loyalty',
+          brand: String(preview.brand || 'Shared Card'),
+          number: String(preview.number || ''),
+          pin: preview.pin ? String(preview.pin) : undefined,
+          notes: preview.notes ? String(preview.notes) : undefined,
+          barcodeType: (preview.barcodeType === 'qr' ? 'qr' : 'code128')
+        };
+      }
+      
+      const card = createCard(cardInput);
       setStep('done');
       // Navigate to the imported card
       router.push(`/k/${card.id}`);

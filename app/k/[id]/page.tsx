@@ -202,7 +202,7 @@ export default function CardDetailPage({ params }: CardDetailPageProps) {
 
       const encryptedData = await encryptJsonWithPin(card, pin);
       const encodedData = encodeToUrlQuery(encryptedData);
-      const shareUrl = `${window.location.origin}/k/${card.id}?data=${encodedData}`;
+      const shareUrl = `${window.location.origin}/s?data=${encodedData}`;
       
       setShareLink(shareUrl);
       setShowShareDialog(true);
