@@ -45,14 +45,15 @@ export default function RootLayout({
         <link rel="icon" href="/logo.png" />
       </head>
         <body>
-          <ServiceWorkerProvider />
-          <ThemeProvider>
-            <ToastProvider>
-              <PasscodeProvider>
-                {children}
-              </PasscodeProvider>
-            </ToastProvider>
-          </ThemeProvider>
+          <ServiceWorkerProvider>
+            <ThemeProvider>
+              <ToastProvider>
+                <PasscodeProvider>
+                  {children}
+                </PasscodeProvider>
+              </ToastProvider>
+            </ThemeProvider>
+          </ServiceWorkerProvider>
         </body>
     </html>
   );

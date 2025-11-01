@@ -232,7 +232,7 @@ export default function CardDetailPage({ params }: CardDetailPageProps) {
       await copyToClipboard(shareLink);
       setNotification({
         open: true,
-        message: 'Share link copied to clipboard!',
+        message: 'Share link copied! Link expires only after the card is imported.',
         severity: 'success'
       });
       // If this is an OTP, auto-delete after sharing the link
@@ -963,7 +963,7 @@ export default function CardDetailPage({ params }: CardDetailPageProps) {
         <DialogTitle>Secure Share Link</DialogTitle>
         <DialogContent sx={{ backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff' }}>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            This link is encrypted and can only be opened with the correct PIN. The link will be invalidated after first use.
+            This link is encrypted and can only be opened with the correct PIN. The link will be invalidated only after the card is imported, not when viewed. This prevents messaging apps from expiring your links.
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <TextField

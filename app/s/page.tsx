@@ -1,41 +1,96 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Typography } from '@mui/material';
-import { decryptJsonWithPin, decodeFromUrlQuery, EncryptedPayload, checkAndMarkTokenUsed } from '@/lib/crypto';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { 
+  Button, 
+  Container, 
+  Paper, 
+  Typography, 
+  Box, 
+  AppBar,
+  Toolbar,
+  IconButton,
+  TextField,
+  Alert,
+  Fade,
+  Card,
+  CardContent,
+  Chip,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText
+} from '@mui/material';
+import { 
+  Settings as SettingsIcon,
+  Info as InfoIcon,
+  Share as ShareIcon,
+  ArrowBack as BackIcon,
+  Lock as LockIcon,
+  Visibility as VisibilityIcon,
+  Download as ImportIcon,
+  MoreVert as MoreIcon,
+  ContentPaste as PasteIcon
+} from '@mui/icons-material';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { PasscodeSettings } from '@/components/PasscodeSettings';
+import { LandingPage } from '@/components/LandingPage';
+import { decryptJsonWithPin, decodeFromUrlQuery, EncryptedPayload, isTokenUsed, markTokenAsUsed } from '@/lib/crypto';
 import { createCard } from '@/lib/storage';
 
 export default function SecureSharePage() {
   const router = useRouter();
   const [payload, setPayload] = useState<EncryptedPayload | null>(null);
+  const [shareData, setShareData] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<any | null>(null);
-  const [step, setStep] = useState<'enter' | 'preview' | 'done'>('enter');
+  const [step, setStep] = useState<'data-entry' | 'pin-entry' | 'preview' | 'done'>('data-entry');
+  const [showPasscodeSettings, setShowPasscodeSettings] = useState(false);
+  const [showLanding, setShowLanding] = useState(false);
+  const [mobileMenuAnchor, setMobileMenuAnchor] = useState<null | HTMLElement>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const urlParams = new URLSearchParams(window.location.search);
     const data = urlParams.get('data');
-    if (!data) return;
-    try {
-      const p = decodeFromUrlQuery(data);
-      setPayload(p);
-    } catch (e) {
-      setError('Invalid link.');
+    if (data) {
+      // If data is in URL, auto-populate and proceed to PIN entry
+      setShareData(data);
+      handleDataSubmit(data);
     }
   }, []);
+
+  const handleDataSubmit = (data?: string) => {
+    const dataToProcess = data || shareData;
+    if (!dataToProcess.trim()) {
+      setError('Please enter the encrypted share data.');
+      return;
+    }
+    
+    setError('');
+    try {
+      const p = decodeFromUrlQuery(dataToProcess);
+      setPayload(p);
+      setStep('pin-entry');
+    } catch (e) {
+      setError('Invalid share data format. Please check the data and try again.');
+    }
+  };
 
   const handleDecrypt = async () => {
     if (!payload) return;
     setError('');
     
-    // Check if token has already been used
-    if (!checkAndMarkTokenUsed(payload)) {
+    // Check if token has already been used (but don't mark it as used yet)
+    if (isTokenUsed(payload.t)) {
       setError('This link has already been used and is no longer valid.');
       return;
     }
+    
+    console.log('Token checked but not marked as used yet - safe for messaging app prefetching');
     
     try {
       const data = await decryptJsonWithPin(payload, pin);
@@ -47,8 +102,19 @@ export default function SecureSharePage() {
   };
 
   const handleImport = () => {
-    if (!preview) return;
+    if (!preview || !payload) return;
+    
+    // Check one more time if token has been used (race condition protection)
+    if (isTokenUsed(payload.t)) {
+      setError('This link has already been used and is no longer valid.');
+      return;
+    }
+    
     try {
+      // Mark token as used only when actually importing
+      console.log('Marking token as used - card is being imported');
+      markTokenAsUsed(payload.t);
+      
       // Handle different card types
       let cardInput: any;
       
@@ -88,6 +154,7 @@ export default function SecureSharePage() {
       router.push(`/k/${card.id}`);
     } catch (e: any) {
       if (e?.code === 'DUPLICATE_CARD' && e.existingId) {
+        // Still mark as used even if duplicate, since the link was successfully processed
         router.push(`/k/${e.existingId}`);
       } else {
         setError('Failed to import shared card.');
@@ -95,132 +162,586 @@ export default function SecureSharePage() {
     }
   };
 
+  const handleMobileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMobileMenuAnchor(event.currentTarget);
+  };
+
+  const handleMobileMenuClose = () => {
+    setMobileMenuAnchor(null);
+  };
+
+  const handleMobileSettings = () => {
+    setShowPasscodeSettings(true);
+    handleMobileMenuClose();
+  };
+
+  const handleMobileAbout = () => {
+    localStorage.removeItem('stoct-has-visited');
+    setShowLanding(true);
+    handleMobileMenuClose();
+  };
+
+
+  const getCardTypeInfo = () => {
+    if (!preview) return { name: 'Card', color: 'primary' };
+    
+    switch (preview.type) {
+      case 'credit':
+        return { name: 'Credit Card', color: 'secondary' };
+      case 'otp':
+        return { name: 'One-Time Password', color: 'warning' };
+      default:
+        return { name: 'Loyalty Card', color: 'primary' };
+    }
+  };
+
+  // Show landing page if requested
+  if (showLanding) {
+    return <LandingPage onGetStarted={() => setShowLanding(false)} />;
+  }
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)',
-      color: '#ffffff',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px'
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '520px',
-        background: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '16px',
-        padding: '24px',
-        overflow: 'hidden'
-      }}>
-        <h1 style={{
-          fontSize: '1.5rem',
-          fontWeight: '700',
-          margin: '0 0 16px 0'
-        }}>Unlock Shared Card</h1>
-
-        {!payload && (
-          <p style={{ margin: 0, color: '#b0b0b0' }}>This link is missing data.</p>
-        )}
-
-        {payload && error && error.includes('already been used') && (
-          <div style={{
-            background: 'rgba(244, 67, 54, 0.1)',
-            border: '1px solid rgba(244, 67, 54, 0.3)',
-            color: '#F44336',
-            padding: '12px 16px',
-            borderRadius: '8px',
-            marginBottom: '16px',
-            fontSize: '0.9rem'
-          }}>
-            ⚠️ This secure link has already been used and is no longer valid.
-          </div>
-        )}
-
-        {payload && step === 'enter' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <Typography variant="body2" sx={{ color: 'text.primary', mb: 1 }}>Enter PIN</Typography>
-            <input
-              type="password"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              style={{
-                padding: '12px 14px',
-                borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#fff'
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+      {/* Navigation Bar - Same as main app */}
+      <AppBar 
+        position="static" 
+        elevation={0}
+        sx={{ 
+          backgroundColor: 'background.paper',
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton
+              onClick={() => router.push('/')}
+              sx={{ 
+                color: 'text.primary',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'scale(1.1)',
+                }
               }}
-              placeholder="PIN to unlock"
-            />
-            <button
-              onClick={handleDecrypt}
-              disabled={!pin}
-              style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                background: !pin ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%)',
-                color: !pin ? 'rgba(255,255,255,0.5)' : '#000',
-                cursor: !pin ? 'not-allowed' : 'pointer',
-                fontWeight: 700
-              }}
+              title="Back to Home"
             >
-              Unlock
-            </button>
-            {error && <div style={{ color: '#F44336' }}>{error}</div>}
-          </div>
-        )}
-
-        {payload && step === 'preview' && preview && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ color: '#b0b0b0' }}>Preview</div>
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '12px',
-              padding: '12px'
-            }}>
-              <div><strong>Brand:</strong> {String(preview.brand || 'Shared Card')}</div>
-              <div><strong>Number:</strong> {String(preview.number || '')}</div>
-              {preview.pin ? <div><strong>PIN:</strong> {String(preview.pin)}</div> : null}
-              {preview.notes ? <div><strong>Notes:</strong> {String(preview.notes)}</div> : null}
-              <div><strong>Type:</strong> {preview.barcodeType === 'qr' ? 'QR Code' : 'Code 128'}</div>
-            </div>
-            <button
-              onClick={handleImport}
-              style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                color: '#fff',
+              <BackIcon />
+            </IconButton>
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
                 cursor: 'pointer',
-                fontWeight: 700
+                '&:hover': {
+                  opacity: 0.8
+                }
+              }}
+              onClick={() => router.push('/')}
+            >
+              <Image src="/logo.png" alt="Stoct Logo" width={32} height={32} style={{ borderRadius: '6px' }} />
+              <Typography variant="h6" component="h1" sx={{ 
+                fontWeight: 600, 
+                color: 'text.primary',
+                fontSize: { xs: '1rem', sm: '1.25rem' },
+                display: { xs: 'none', sm: 'block' }
+              }}>
+                Stoct
+              </Typography>
+              <Typography variant="body1" component="h1" sx={{ 
+                fontWeight: 600, 
+                color: 'text.primary',
+                display: { xs: 'block', sm: 'none' }
+              }}>
+                Stoct
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Beautiful Donate Button */}
+            <Button
+              component="a"
+              href="https://ko-fi.com/stoct"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="contained"
+              size="small"
+              sx={{ 
+                mr: 1, 
+                textTransform: 'none', 
+                fontWeight: 600,
+                background: (theme) => theme.palette.mode === 'dark' 
+                  ? 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)'
+                  : 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
+                color: 'white',
+                borderRadius: 2,
+                px: 2,
+                py: 0.5,
+                boxShadow: '0 3px 10px rgba(255, 107, 107, 0.3)',
+                '&:hover': {
+                  background: (theme) => theme.palette.mode === 'dark'
+                    ? 'linear-gradient(45deg, #FF5252 30%, #FF7043 90%)'
+                    : 'linear-gradient(45deg, #FF5252 30%, #FF7043 90%)',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 6px 20px rgba(255, 107, 107, 0.4)',
+                }
               }}
             >
-              Import Card
-            </button>
-            <button
-              onClick={() => setStep('enter')}
-              style={{
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(255,255,255,0.2)',
-                backgroundColor: 'background.paper',
-                color: '#fff',
-                cursor: 'pointer'
+              ❤️ Donate
+            </Button>
+
+            {/* Desktop-only buttons */}
+            <IconButton
+              onClick={() => setShowPasscodeSettings(true)}
+              sx={{ 
+                color: 'text.primary',
+                display: { xs: 'none', sm: 'flex' },
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'scale(1.1)',
+                }
               }}
+              title="Settings"
             >
-              Back
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+              <SettingsIcon />
+            </IconButton>
+            <IconButton
+              onClick={() => {
+                localStorage.removeItem('stoct-has-visited');
+                setShowLanding(true);
+              }}
+              sx={{ 
+                color: 'text.primary',
+                display: { xs: 'none', sm: 'flex' },
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'scale(1.1)',
+                }
+              }}
+              title="About Stoct"
+            >
+              <InfoIcon />
+            </IconButton>
+
+            {/* Theme Toggle - always visible */}
+            <ThemeToggle />
+
+            {/* Mobile menu button */}
+            <IconButton
+              onClick={handleMobileMenuOpen}
+              sx={{ 
+                color: 'text.primary',
+                display: { xs: 'flex', sm: 'none' },
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'scale(1.1)',
+                }
+              }}
+              title="Menu"
+            >
+              <MoreIcon />
+            </IconButton>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        {/* Page Header */}
+        <Fade in timeout={300}>
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: 4, 
+              mb: 4,
+              backgroundColor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 3,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center'
+            }}
+          >
+            <ShareIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h4" component="h1" sx={{ 
+              color: 'text.primary', 
+              fontWeight: 600, 
+              mb: 2 
+            }}>
+              Import Shared Card
+            </Typography>
+            <Typography variant="body1" sx={{ 
+              color: 'text.secondary', 
+              maxWidth: '600px', 
+              mx: 'auto' 
+            }}>
+              Enter the PIN to decrypt and import a shared card securely
+            </Typography>
+          </Paper>
+        </Fade>
+
+        {/* Main Content */}
+        <Fade in timeout={500}>
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: 4, 
+              backgroundColor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 3,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            {/* Data Entry Step */}
+            {step === 'data-entry' && (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <ShareIcon sx={{ color: 'primary.main' }} />
+                  <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                    Enter Share Data
+                  </Typography>
+                </Box>
+                
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+                  Paste the encrypted share data you received. This could be from a share link URL or copied directly from the encrypted data.
+                </Typography>
+                
+                <Box sx={{ mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    label="Encrypted Share Data"
+                    value={shareData}
+                    onChange={(e) => setShareData(e.target.value)}
+                    placeholder="Paste the encrypted share data here... (e.g., from a share link or copied data)"
+                    variant="outlined"
+                    error={!!error}
+                    helperText={error || 'Paste the share data from a Stoct share link or the encrypted data directly'}
+                    sx={{
+                      mb: 2,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': {
+                          borderColor: 'primary.main',
+                        },
+                      },
+                    }}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        // If it's a full URL, extract the data parameter
+                        if (text.includes('/s?data=')) {
+                          const url = new URL(text);
+                          const data = url.searchParams.get('data');
+                          if (data) {
+                            setShareData(data);
+                          } else {
+                            setShareData(text);
+                          }
+                        } else {
+                          setShareData(text);
+                        }
+                        setError('');
+                      } catch (err) {
+                        setError('Failed to paste from clipboard. Please paste manually.');
+                      }
+                    }}
+                    startIcon={<PasteIcon />}
+                    sx={{ 
+                      mb: 1
+                    }}
+                    fullWidth
+                  >
+                    Paste from Clipboard
+                  </Button>
+                </Box>
+
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={() => handleDataSubmit()}
+                  disabled={!shareData.trim()}
+                  startIcon={<LockIcon />}
+                  sx={{ 
+                    py: 1.5,
+                    fontWeight: 600,
+                    '&:disabled': {
+                      backgroundColor: 'action.disabledBackground',
+                    }
+                  }}
+                >
+                  Process Share Data
+                </Button>
+              </Box>
+            )}
+
+            {/* Error State - Link Already Used */}
+            {payload && error && error.includes('already been used') && (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    Link Already Used
+                  </Typography>
+                  <Typography variant="body2">
+                    This secure link has already been used and is no longer valid.
+                  </Typography>
+                </Alert>
+                <Button 
+                  variant="outlined" 
+                  onClick={() => router.push('/')}
+                  startIcon={<BackIcon />}
+                >
+                  Go Home
+                </Button>
+              </Box>
+            )}
+
+            {/* PIN Entry Step */}
+            {payload && step === 'pin-entry' && !error.includes('already been used') && (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <LockIcon sx={{ color: 'primary.main' }} />
+                  <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                    Enter PIN to Unlock
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    type="password"
+                    label="PIN"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="Enter the PIN provided with this link"
+                    variant="outlined"
+                    error={!!error && !error.includes('already been used')}
+                    helperText={error && !error.includes('already been used') ? error : 'Enter the 4-8 character PIN'}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && pin) {
+                        handleDecrypt();
+                      }
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': {
+                          borderColor: 'primary.main',
+                        },
+                      },
+                    }}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleDecrypt}
+                    disabled={!pin}
+                    startIcon={<VisibilityIcon />}
+                    sx={{ 
+                      flex: 1,
+                      py: 1.5,
+                      fontWeight: 600,
+                      '&:disabled': {
+                        backgroundColor: 'action.disabledBackground',
+                      }
+                    }}
+                  >
+                    Unlock and Preview
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setStep('data-entry');
+                      setPayload(null);
+                      setPin('');
+                      setError('');
+                    }}
+                    startIcon={<BackIcon />}
+                    sx={{ 
+                      flex: { xs: 1, sm: 'none' },
+                      py: 1.5
+                    }}
+                  >
+                    Back
+                  </Button>
+                </Box>
+              </Box>
+            )}
+
+            {/* Preview Step */}
+            {payload && step === 'preview' && preview && (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <VisibilityIcon sx={{ color: 'success.main' }} />
+                  <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                    Card Preview
+                  </Typography>
+                  <Chip 
+                    label={getCardTypeInfo().name} 
+                    color={getCardTypeInfo().color as any}
+                    size="small"
+                  />
+                </Box>
+
+                <Alert severity="success" sx={{ mb: 3 }}>
+                  <Typography variant="body2">
+                    ✅ This link will only expire after you import the card, not when viewing it.
+                  </Typography>
+                </Alert>
+
+                <Card variant="outlined" sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+                      Card Details
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">Brand:</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {String(preview.brand || preview.description || 'Shared Card')}
+                        </Typography>
+                      </Box>
+                      
+                      {preview.number && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Number:</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>
+                            {String(preview.number)}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {preview.cardNumber && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Card Number:</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>
+                            {String(preview.cardNumber)}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {preview.password && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Password:</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>
+                            {String(preview.password)}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {preview.pin && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">PIN:</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>
+                            {String(preview.pin)}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {preview.notes && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Notes:</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {String(preview.notes)}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {preview.barcodeType && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">Barcode Type:</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {preview.barcodeType === 'qr' ? 'QR Code' : 'Code 128'}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+
+                <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleImport}
+                    startIcon={<ImportIcon />}
+                    sx={{ 
+                      flex: 1,
+                      py: 1.5,
+                      fontWeight: 600,
+                      backgroundColor: 'success.main',
+                      '&:hover': {
+                        backgroundColor: 'success.dark',
+                      }
+                    }}
+                  >
+                    Import Card
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setStep('pin-entry');
+                      setPreview(null);
+                      setError('');
+                    }}
+                    startIcon={<BackIcon />}
+                    sx={{ 
+                      flex: { xs: 1, sm: 'none' },
+                      py: 1.5
+                    }}
+                  >
+                    Back
+                  </Button>
+                </Box>
+              </Box>
+            )}
+          </Paper>
+        </Fade>
+      </Container>
+
+      {/* Mobile Menu */}
+      <Menu
+        anchorEl={mobileMenuAnchor}
+        open={Boolean(mobileMenuAnchor)}
+        onClose={handleMobileMenuClose}
+        PaperProps={{
+          sx: {
+            backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            minWidth: 160
+          }
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleMobileSettings}>
+          <ListItemIcon>
+            <SettingsIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Settings</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleMobileAbout}>
+          <ListItemIcon>
+            <InfoIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>About Stoct</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Passcode Settings Dialog */}
+      <PasscodeSettings
+        open={showPasscodeSettings}
+        onClose={() => setShowPasscodeSettings(false)}
+        onPasscodeChanged={() => {
+          window.location.reload();
+        }}
+      />
+    </Box>
   );
 }
-
-

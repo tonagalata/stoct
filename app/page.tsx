@@ -41,7 +41,8 @@ import {
   Loyalty as LoyaltyIcon,
   CreditCard as CreditCardIcon,
   VpnKey as OTPIcon,
-  MoreVert as MoreIcon
+  MoreVert as MoreIcon,
+  Share as ShareIcon
 } from '@mui/icons-material';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -163,6 +164,11 @@ export default function HomePage() {
   const handleMobileAbout = () => {
     localStorage.removeItem('stoct-has-visited');
     setShowLanding(true);
+    handleMobileMenuClose();
+  };
+
+  const handleMobileShare = () => {
+    router.push('/s');
     handleMobileMenuClose();
   };
 
@@ -383,8 +389,21 @@ export default function HomePage() {
               ❤️ Donate
             </Button>
 
-
             {/* Desktop-only buttons */}
+            <IconButton
+              onClick={() => router.push('/s')}
+              sx={{ 
+                color: 'text.primary',
+                display: { xs: 'none', sm: 'flex' }, // Hide on mobile
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'scale(1.1)',
+                }
+              }}
+              title="Import Shared Card"
+            >
+              <ShareIcon />
+            </IconButton>
             <IconButton
               onClick={() => setShowPasscodeSettings(true)}
               sx={{ 
@@ -896,6 +915,12 @@ export default function HomePage() {
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
+        <MenuItem onClick={handleMobileShare}>
+          <ListItemIcon>
+            <ShareIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Import Shared Card</ListItemText>
+        </MenuItem>
         <MenuItem onClick={handleMobileSettings}>
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
