@@ -1,5 +1,6 @@
 import { Card, CardInput, ExportData, CardType, LoyaltyCard, CreditCard, OneTimePassword } from './types';
 import { generateId } from './ids';
+import { syncHooks } from './sync/sync-hooks';
 
 const INDEX_KEY = 'Stoct:index';
 const CARD_KEY_PREFIX = 'Stoct:card:';
@@ -158,6 +159,9 @@ export const createCard = (cardInput: CardInput): Card => {
   ids.push(card.id);
   saveCardIds(ids);
   
+  // Trigger sync after card creation
+  syncHooks.onCardCreated();
+  
   return card;
 };
 
@@ -190,6 +194,10 @@ export const updateCard = (card: Card): Card => {
   };
   
   saveCard(updatedCard);
+  
+  // Trigger sync after card update
+  syncHooks.onCardUpdated();
+  
   return updatedCard;
 };
 
@@ -203,6 +211,9 @@ export const removeCard = (id: string): boolean => {
   const ids = getCardIds();
   const filteredIds = ids.filter(cardId => cardId !== id);
   saveCardIds(filteredIds);
+  
+  // Trigger sync after card deletion
+  syncHooks.onCardDeleted();
   
   return true;
 };
@@ -302,6 +313,9 @@ export const importAllCards = (jsonData: string): { success: boolean; count: num
       newIds.push(card.id);
     });
     saveCardIds(newIds);
+    
+    // Trigger sync after cards import
+    syncHooks.onCardsImported();
     
     return { success: true, count: data.cards.length };
   } catch (error) {

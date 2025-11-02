@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardInput, CardType } from '@/lib/types';
 import { getAllCards, createCard, removeCard, exportAllCards, importAllCards, cleanupExpiredOTPs } from '@/lib/storage';
+import { syncHooks } from '@/lib/sync/sync-hooks';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { LandingPage } from '@/components/LandingPage';
 import { PasscodeSettings } from '@/components/PasscodeSettings';
 import { CardForm } from '@/components/CardForm';
 import { CardDisplay } from '@/components/CardDisplay';
+import { SetupRecoveryModal } from '@/components/recovery/SetupRecoveryModal';
 import { 
   Button, 
   Grid,
@@ -58,6 +60,7 @@ export default function HomePage() {
     severity: 'info'
   });
   const [showPasscodeSettings, setShowPasscodeSettings] = useState(false);
+  const [showRecoverySetup, setShowRecoverySetup] = useState(false);
   const [selectedCardType, setSelectedCardType] = useState<CardType | 'all'>('all');
   const [creationStep, setCreationStep] = useState<'main' | 'type-select' | 'form'>('main');
   const [selectedTypeForCreation, setSelectedTypeForCreation] = useState<CardType | null>(null);
@@ -78,6 +81,9 @@ export default function HomePage() {
     // Clean up expired OTPs
     cleanupExpiredOTPs();
     setCards(getAllCards());
+    
+    // Trigger sync on app startup
+    syncHooks.onAppStartup();
   }, []);
 
   const handleGetStarted = () => {
@@ -949,7 +955,26 @@ export default function HomePage() {
         open={showPasscodeSettings}
         onClose={() => setShowPasscodeSettings(false)}
         onPasscodeChanged={() => {
+          // Check if this is first time passcode setup
+          const isFirstSetup = !localStorage.getItem('stoct-recovery-prompted');
+          if (isFirstSetup) {
+            localStorage.setItem('stoct-recovery-prompted', 'true');
+            setShowRecoverySetup(true);
+          }
           window.location.reload();
+        }}
+      />
+
+      {/* Recovery Setup Modal */}
+      <SetupRecoveryModal
+        open={showRecoverySetup}
+        onClose={() => setShowRecoverySetup(false)}
+        onSetupComplete={() => {
+          setNotification({
+            open: true,
+            message: 'Cloud sync enabled successfully!',
+            severity: 'success'
+          });
         }}
       />
 

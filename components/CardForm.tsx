@@ -14,7 +14,8 @@ import {
   Fade,
   Chip,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  Grid
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -307,16 +308,19 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData, cardType
             )}
           </Box>
           
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Expiry Month</InputLabel>
               <Select
+                fullWidth
                 name="expiryMonth"
                 value={formData.expiryMonth}
                 onChange={handleSelectChange}
                 label="Expiry Month"
                 required
                 sx={{ 
+                  width: '100%',
                   backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff',
                   '& .MuiSelect-select': {
                     backgroundColor: (t) => t.palette.mode === 'dark' ? '#121212' : '#ffffff'
@@ -346,7 +350,8 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData, cardType
                 ))}
               </Select>
             </FormControl>
-            
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}> 
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Expiry Year</InputLabel>
               <Select
@@ -385,7 +390,8 @@ export function CardForm({ onSubmit, isSubmitting = false, initialData, cardType
                 ))}
               </Select>
             </FormControl>
-          </Box>
+            </Grid>
+          </Grid>
           
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField

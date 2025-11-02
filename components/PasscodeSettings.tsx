@@ -27,6 +27,8 @@ import {
   Settings as SettingsIcon
 } from '@mui/icons-material';
 import { isPasscodeSetup, clearPasscode, isBiometricSetup } from '@/lib/passcode-storage';
+import { SyncStatus } from './settings/SyncStatus';
+import { MoveToDevice } from './settings/MoveToDevice';
 
 interface PasscodeSettingsProps {
   open: boolean;
@@ -163,6 +165,12 @@ export function PasscodeSettings({ open, onClose, onPasscodeChanged }: PasscodeS
               <strong>How it works:</strong> When you close the app (not just refresh), you'll need to enter your passcode or use biometric authentication to access your cards again.
             </Typography>
           </Alert>
+
+          <Divider />
+
+          <SyncStatus />
+
+          <MoveToDevice />
         </Box>
       </DialogContent>
 

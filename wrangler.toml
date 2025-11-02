@@ -1,0 +1,8 @@
+name = "stoct-vault"
+main = "worker/index.ts"
+compatibility_date = "2024-10-01"
+
+[[kv_namespaces]]
+binding = "VAULTS"
+id = "9985f242f512400396be22428dcc33aa"
+preview_id = "9985f242f512400396be22428dcc33aa"

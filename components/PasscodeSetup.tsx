@@ -24,6 +24,7 @@ import {
   Close as CloseIcon
 } from '@mui/icons-material';
 import { setupPasscode, registerBiometricCredential, isBiometricSetup } from '@/lib/passcode-storage';
+import { RecoverySetupFlow } from './recovery/RecoverySetupFlow';
 
 interface PasscodeSetupProps {
   open: boolean;
@@ -39,7 +40,9 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [biometricSupported, setBiometricSupported] = useState(false);
-  const [step, setStep] = useState<'setup' | 'biometric'>('setup');
+  const [step, setStep] = useState<'setup' | 'biometric' | 'recovery'>('setup');
+  const [showRecoveryFlow, setShowRecoveryFlow] = useState(false);
+  const [completedPasscode, setCompletedPasscode] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -99,10 +102,13 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
     try {
       await setupPasscode(passcode);
       
+      setCompletedPasscode(passcode);
+      
       if (biometricSupported) {
         setStep('biometric');
       } else {
-        onComplete();
+        // Show recovery setup after passcode is created
+        setShowRecoveryFlow(true);
       }
     } catch (error: any) {
       setError(error.message || 'Failed to setup passcode');
@@ -123,10 +129,12 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
       const success = await registerBiometricCredential();
       if (success) {
         setError('');
-        onComplete();
+        // Show recovery setup after biometric setup
+        setShowRecoveryFlow(true);
       } else {
         setError('Biometric registration failed. You can still use your passcode.');
-        onComplete();
+        // Show recovery setup even if biometric failed
+        setShowRecoveryFlow(true);
       }
     } catch (error: any) {
       console.error('Biometric setup error:', error);
@@ -149,6 +157,21 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
     } else {
       onComplete();
     }
+  };
+
+  const handleSkipBiometric = () => {
+    // Show recovery setup after skipping biometric
+    setShowRecoveryFlow(true);
+  };
+
+  const handleRecoveryComplete = () => {
+    setShowRecoveryFlow(false);
+    onComplete();
+  };
+
+  const handleRecoverySkip = () => {
+    setShowRecoveryFlow(false);
+    onComplete();
   };
 
   const resetForm = () => {
@@ -320,6 +343,13 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
               Back
             </Button>
             <Button
+              onClick={handleSkipBiometric}
+              variant="outlined"
+              sx={{ minWidth: 80 }}
+            >
+              Skip
+            </Button>
+            <Button
               onClick={handleBiometricSetup}
               variant="contained"
               disabled={isLoading}
@@ -331,6 +361,14 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
           </>
         )}
       </DialogActions>
+
+      {/* Recovery Setup Flow */}
+      <RecoverySetupFlow
+        open={showRecoveryFlow}
+        onClose={handleRecoverySkip}
+        onComplete={handleRecoveryComplete}
+        passcode={completedPasscode}
+      />
     </Dialog>
   );
 }
