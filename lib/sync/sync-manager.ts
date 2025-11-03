@@ -79,7 +79,7 @@ class SyncManager {
       // Derive KEK from user PIN (simplified - in production, use proper PBKDF2/Argon2)
       const encoder = new TextEncoder();
       const pinBytes = encoder.encode(userPin);
-      const kekMaterial = await crypto.subtle.importKey('raw', pinBytes, 'PBKDF2', false, ['deriveKey']);
+      const kekMaterial = await crypto.subtle.importKey('raw', pinBytes as BufferSource, 'PBKDF2', false, ['deriveKey']);
       const salt = crypto.getRandomValues(new Uint8Array(16));
       
       const kek = await crypto.subtle.deriveKey(
@@ -154,8 +154,8 @@ class SyncManager {
 
       // Encrypt with vault key
       const iv = crypto.getRandomValues(new Uint8Array(12));
-      const key = await crypto.subtle.importKey('raw', this.state.vaultKey, 'AES-GCM', false, ['encrypt']);
-      const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, dataBytes);
+      const key = await crypto.subtle.importKey('raw', this.state.vaultKey as BufferSource, 'AES-GCM', false, ['encrypt']);
+      const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, dataBytes as BufferSource);
 
       // Combine IV + ciphertext
       const ivct = new Uint8Array(iv.length + encrypted.byteLength);
@@ -206,8 +206,8 @@ class SyncManager {
       const iv = ivct.slice(0, 12);
       const ciphertext = ivct.slice(12);
       
-      const key = await crypto.subtle.importKey('raw', this.state.vaultKey, 'AES-GCM', false, ['decrypt']);
-      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+      const key = await crypto.subtle.importKey('raw', this.state.vaultKey as BufferSource, 'AES-GCM', false, ['decrypt']);
+      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext as BufferSource);
       
       const decoder = new TextDecoder();
       const cardsData = decoder.decode(decrypted);
