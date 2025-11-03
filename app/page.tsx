@@ -975,12 +975,8 @@ export default function HomePage() {
         open={showPasscodeSettings}
         onClose={() => setShowPasscodeSettings(false)}
         onPasscodeChanged={() => {
-          // Check if this is first time passcode setup
-          const isFirstSetup = !localStorage.getItem('stoct-recovery-prompted');
-          if (isFirstSetup) {
-            localStorage.setItem('stoct-recovery-prompted', 'true');
-            setShowRecoverySetup(true);
-          }
+          // Recovery setup is now integrated into PasscodeSetup component
+          // No need for separate recovery modal
           window.location.reload();
         }}
       />
