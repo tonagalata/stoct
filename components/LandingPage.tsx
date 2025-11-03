@@ -5,9 +5,10 @@ import Image from 'next/image';
 
 interface LandingPageProps {
   onGetStarted: () => void;
+  onRecoverFromCloud?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onRecoverFromCloud }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [currentFeature, setCurrentFeature] = useState(0);
 
@@ -287,6 +288,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           →
         </span>
       </button>
+
+      {/* Recovery option for existing users */}
+      {onRecoverFromCloud && (
+        <button
+          onClick={onRecoverFromCloud}
+          className="recovery-button"
+          style={{
+            background: 'transparent',
+            color: '#ffffff',
+            border: '2px solid rgba(255, 255, 255, 0.3)',
+            padding: '16px 32px',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            fontWeight: '600',
+            boxShadow: '0 5px 20px rgba(255, 255, 255, 0.1)',
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            animation: isVisible ? 'fadeInUp 1s ease-out 1s both' : 'none',
+            position: 'relative',
+            overflow: 'hidden',
+            minHeight: '50px',
+            minWidth: '180px',
+            width: '100%',
+            maxWidth: '280px',
+            marginTop: '16px'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          <span>☁️ Recover from Cloud</span>
+        </button>
+      )}
 
       {/* Privacy note with animation */}
       <div className="lp-footer" style={{

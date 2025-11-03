@@ -20,11 +20,13 @@ import {
 } from '@mui/icons-material';
 import { syncManager } from '@/lib/sync/sync-manager';
 import { triggerSync, pullLatestData } from '@/lib/sync/sync-hooks';
+import { CloudRecovery } from '@/components/recovery/CloudRecovery';
 
 export function SyncStatus() {
   const [syncState, setSyncState] = useState(syncManager.getState());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showCloudRecovery, setShowCloudRecovery] = useState(false);
 
   useEffect(() => {
     // Load initial state
@@ -49,8 +51,14 @@ export function SyncStatus() {
     } catch (err: any) {
       if (err.message === 'precondition') {
         setError('Sync conflict detected. Please restore from cloud first.');
+      } else if (err.message === 'network_error' || err.message.includes('Network connection failed')) {
+        setError('🌐 Network connection failed. Please check your internet connection.');
+      } else if (err.message === 'quota_exceeded' || err.message.includes('quota exceeded')) {
+        setError('⚠️ Cloud sync quota exceeded. Sync will resume tomorrow. Your data is safe locally.');
+      } else if (err.message === 'service_unavailable' || err.message.includes('service is temporarily unavailable')) {
+        setError('🔧 Cloud sync service is temporarily unavailable. Please try again later.');
       } else {
-        setError('Failed to sync. Please try again.');
+        setError('Failed to sync: ' + err.message);
       }
     } finally {
       setIsLoading(false);
@@ -70,8 +78,16 @@ export function SyncStatus() {
       } else {
         setError('Failed to restore from cloud. Please try again.');
       }
-    } catch (err) {
-      setError('Failed to restore from cloud. Please try again.');
+    } catch (err: any) {
+      if (err.message === 'network_error' || err.message.includes('Network connection failed')) {
+        setError('🌐 Network connection failed. Please check your internet connection.');
+      } else if (err.message === 'quota_exceeded' || err.message.includes('quota exceeded')) {
+        setError('⚠️ Cloud sync quota exceeded. Please try again tomorrow.');
+      } else if (err.message === 'service_unavailable' || err.message.includes('service is temporarily unavailable')) {
+        setError('🔧 Cloud sync service is temporarily unavailable. Please try again later.');
+      } else {
+        setError('Failed to restore from cloud: ' + err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -88,16 +104,26 @@ export function SyncStatus() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Enable cloud sync to keep your cards synchronized across devices.
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<CloudIcon />}
-          onClick={() => {
-            // This would trigger the SetupRecoveryModal
-            console.log('Setup sync');
-          }}
-        >
-          Enable Sync
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<CloudIcon />}
+            onClick={() => {
+              // This would trigger the SetupRecoveryModal
+              console.log('Setup sync');
+            }}
+          >
+            Enable Sync
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<RestoreIcon />}
+            onClick={() => setShowCloudRecovery(true)}
+            color="secondary"
+          >
+            Recover from Cloud
+          </Button>
+        </Box>
       </Paper>
     );
   }
@@ -148,11 +174,11 @@ export function SyncStatus() {
         <Button
           variant="outlined"
           startIcon={<RestoreIcon />}
-          onClick={handleRestore}
+          onClick={() => setShowCloudRecovery(true)}
           disabled={isLoading}
           size="small"
         >
-          Restore
+          Recover from Cloud
         </Button>
         <IconButton
           onClick={refreshState}
@@ -163,6 +189,16 @@ export function SyncStatus() {
           <RefreshIcon />
         </IconButton>
       </Box>
+
+      {/* Cloud Recovery Dialog */}
+      <CloudRecovery
+        open={showCloudRecovery}
+        onClose={() => setShowCloudRecovery(false)}
+        onRecoveryComplete={() => {
+          setShowCloudRecovery(false);
+          refreshState();
+        }}
+      />
     </Paper>
   );
 }

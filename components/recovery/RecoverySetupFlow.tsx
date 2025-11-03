@@ -18,6 +18,7 @@ import {
   IconButton,
   TextField,
   Divider,
+  CircularProgress,
   List,
   ListItem,
   ListItemIcon,
@@ -40,15 +41,17 @@ import {
 } from '@mui/icons-material';
 import { syncManager } from '@/lib/sync/sync-manager';
 import { exportAllCards } from '@/lib/storage';
+import { PasswordInput } from '@/components/common/PasswordInput';
+import { validatePassword } from '@/lib/password-validation';
 
 interface RecoverySetupFlowProps {
   open: boolean;
   onClose: () => void;
   onComplete: () => void;
-  passcode: string; // The passcode that was just created
+  appPasscode: string; // The app passcode that was just created (different from cloud password)
 }
 
-export function RecoverySetupFlow({ open, onClose, onComplete, passcode }: RecoverySetupFlowProps) {
+export function RecoverySetupFlow({ open, onClose, onComplete, appPasscode }: RecoverySetupFlowProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [recoveryOptions, setRecoveryOptions] = useState({
     cloudSync: false,
@@ -57,10 +60,11 @@ export function RecoverySetupFlow({ open, onClose, onComplete, passcode }: Recov
   });
   const [showRecoveryData, setShowRecoveryData] = useState(false);
   const [recoveryPhrase, setRecoveryPhrase] = useState('');
+  const [cloudPassword, setCloudPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const steps = ['Choose Recovery Methods', 'Setup Cloud Sync', 'Backup Data', 'Complete Setup'];
+  const steps = ['Choose Recovery Methods', 'Create Cloud Password', 'Backup Data', 'Complete Setup'];
 
   const generateRecoveryPhrase = () => {
     // Generate a simple recovery phrase (in production, use proper BIP39 or similar)
@@ -83,15 +87,40 @@ export function RecoverySetupFlow({ open, onClose, onComplete, passcode }: Recov
   };
 
   const handleSetupCloudSync = async () => {
+    if (!cloudPassword.trim()) {
+      setError('Please create a strong password for cloud sync.');
+      return;
+    }
+
+    // Validate password strength
+    const validation = validatePassword(cloudPassword);
+    if (!validation.overall.isValid) {
+      setError('Password does not meet security requirements. Please create a stronger password.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
     
     try {
-      await syncManager.initializeSync(passcode);
+      if (!process.env.NEXT_PUBLIC_STOCT_CF_BASE) {
+        throw new Error('Cloud sync service not configured. Please check environment variables.');
+      }
+      
+      await syncManager.initializeSync(cloudPassword);
       setRecoveryOptions(prev => ({ ...prev, cloudSync: true }));
       handleNext();
     } catch (err: any) {
-      setError('Failed to setup cloud sync: ' + err.message);
+      console.error('Cloud sync setup error:', err);
+      if (err.message === 'network_error' || err.message.includes('Network connection failed')) {
+        setError('🌐 Network connection failed. Please check your internet connection.');
+      } else if (err.message === 'quota_exceeded' || err.message.includes('quota exceeded')) {
+        setError('⚠️ Cloud sync quota exceeded. Please try again tomorrow.');
+      } else if (err.message === 'service_unavailable' || err.message.includes('service is temporarily unavailable')) {
+        setError('🔧 Cloud sync service is temporarily unavailable. Please try again later.');
+      } else {
+        setError('Failed to setup cloud sync: ' + err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -99,13 +128,14 @@ export function RecoverySetupFlow({ open, onClose, onComplete, passcode }: Recov
 
   const handleDownloadBackup = () => {
     try {
-      const backupData = {
-        version: '1.0',
-        timestamp: new Date().toISOString(),
-        passcode: passcode, // In production, this should be encrypted
-        cards: exportAllCards(),
-        recoveryPhrase: recoveryPhrase
-      };
+        const backupData = {
+          version: '1.0',
+          timestamp: new Date().toISOString(),
+          appPasscode: appPasscode, // App passcode (4-digit PIN)
+          cloudPassword: cloudPassword, // Strong cloud password (separate)
+          cards: exportAllCards(),
+          recoveryPhrase: recoveryPhrase
+        };
       
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { 
         type: 'application/json' 
@@ -214,35 +244,49 @@ export function RecoverySetupFlow({ open, onClose, onComplete, passcode }: Recov
         return (
           <Box>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-              Setup Cloud Sync
+              Create Cloud Password
             </Typography>
             
             {recoveryOptions.cloudSync ? (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Enable zero-knowledge cloud sync to automatically backup your data.
+                  Create a strong password for your cloud sync. This is separate from your app passcode and provides maximum security.
                 </Typography>
 
-                <Paper sx={{ p: 3, mb: 3, bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.200' }}>
+                <Paper sx={{ p: 3, mb: 3, bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.200' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <SecurityIcon color="primary" />
+                    <SecurityIcon color="warning" />
                     <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      Zero-Knowledge Security
+                      Two-Layer Security
                     </Typography>
                   </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    • <strong>App Passcode:</strong> Quick access (4+ digits) - what you just created
+                    <br />
+                    • <strong>Cloud Password:</strong> Strong password (8+ chars) - for cloud sync security
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Your data is encrypted on your device before being sent to the cloud. 
-                    Even we cannot access your information without your passcode.
+                    Your data is encrypted with this password before being sent to the cloud. 
+                    Even we cannot access your information without it.
                   </Typography>
                 </Paper>
+
+                <PasswordInput
+                  label="Cloud Sync Password"
+                  value={cloudPassword}
+                  onChange={setCloudPassword}
+                  showStrengthMeter={true}
+                  showRequirements={true}
+                  showGenerator={true}
+                />
 
                 <Button
                   variant="contained"
                   onClick={handleSetupCloudSync}
-                  disabled={isLoading}
-                  startIcon={<CloudIcon />}
+                  disabled={isLoading || !cloudPassword.trim() || !validatePassword(cloudPassword).overall.isValid}
+                  startIcon={isLoading ? <CircularProgress size={20} /> : <CloudIcon />}
                   fullWidth
-                  sx={{ mb: 2 }}
+                  sx={{ mt: 2 }}
                 >
                   {isLoading ? 'Setting up...' : 'Enable Cloud Sync'}
                 </Button>
@@ -404,6 +448,14 @@ export function RecoverySetupFlow({ open, onClose, onComplete, passcode }: Recov
       PaperProps={{
         sx: {
           minHeight: '500px'
+        }
+      }}
+      BackdropProps={{
+        sx: {
+          backgroundColor: (theme) => theme.palette.mode === 'dark' 
+            ? 'rgba(0, 0, 0, 0.9)' 
+            : 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(8px)'
         }
       }}
     >

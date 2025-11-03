@@ -28,17 +28,18 @@ import {
 } from '@mui/icons-material';
 import { isPasscodeSetup, clearPasscode, isBiometricSetup } from '@/lib/passcode-storage';
 import { SyncStatus } from './settings/SyncStatus';
-import { MoveToDevice } from './settings/MoveToDevice';
+import { PasscodeSetup } from './PasscodeSetup';
 
 interface PasscodeSettingsProps {
   open: boolean;
   onClose: () => void;
-  onPasscodeChanged: () => void;
+  onPasscodeChanged: (isFirstTime?: boolean) => void;
 }
 
 export function PasscodeSettings({ open, onClose, onPasscodeChanged }: PasscodeSettingsProps) {
   const [isPasscodeEnabled, setIsPasscodeEnabled] = useState(isPasscodeSetup());
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(isBiometricSetup());
+  const [showPasscodeSetup, setShowPasscodeSetup] = useState(false);
 
   const handleDisablePasscode = () => {
     if (window.confirm('Are you sure you want to disable passcode protection? This will make your cards less secure.')) {
@@ -50,27 +51,40 @@ export function PasscodeSettings({ open, onClose, onPasscodeChanged }: PasscodeS
   };
 
   const handleEnablePasscode = () => {
-    // This would trigger the passcode setup flow
-    // For now, we'll just show a message
-    alert('Passcode setup will be available in the next update. For now, you can disable the current passcode.');
+    setShowPasscodeSetup(true);
+  };
+
+  const handlePasscodeSetupComplete = () => {
+    setShowPasscodeSetup(false);
+    setIsPasscodeEnabled(true);
+    setIsBiometricEnabled(isBiometricSetup());
+    onPasscodeChanged(true); // Indicate this is a first-time setup
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 3,
-          backgroundColor: (t) => (t.palette.mode === 'dark' ? '#121212' : '#ffffff'),
-          border: '1px solid',
-          borderColor: 'divider'
-        }
-      }}
-      BackdropProps={{ sx: { backgroundColor: 'rgba(0,0,0,0.9)' } }}
-    >
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            backgroundColor: (t) => (t.palette.mode === 'dark' ? '#121212' : '#ffffff'),
+            border: '1px solid',
+            borderColor: 'divider'
+          }
+        }}
+        BackdropProps={{
+          sx: {
+            backgroundColor: (theme) => theme.palette.mode === 'dark' 
+              ? 'rgba(0, 0, 0, 0.9)' 
+              : 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(8px)'
+          }
+        }}
+      >
       <DialogTitle
         sx={{
           display: 'flex',
@@ -169,8 +183,6 @@ export function PasscodeSettings({ open, onClose, onPasscodeChanged }: PasscodeS
           <Divider />
 
           <SyncStatus />
-
-          <MoveToDevice />
         </Box>
       </DialogContent>
 
@@ -202,6 +214,14 @@ export function PasscodeSettings({ open, onClose, onPasscodeChanged }: PasscodeS
           </Button>
         )}
       </DialogActions>
-    </Dialog>
+      </Dialog>
+
+      {/* Passcode Setup Modal */}
+      <PasscodeSetup
+        open={showPasscodeSetup}
+        onComplete={handlePasscodeSetupComplete}
+        onSkip={() => setShowPasscodeSetup(false)}
+      />
+    </>
   );
 }

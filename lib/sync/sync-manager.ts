@@ -128,8 +128,15 @@ class SyncManager {
       // Perform initial sync
       await this.pushToCloud();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize sync:', error);
+      if (error.message === 'quota_exceeded') {
+        throw new Error('Cloud sync quota exceeded. Please try again tomorrow or upgrade your plan.');
+      } else if (error.message === 'network_error') {
+        throw new Error('Network connection failed. Please check your internet connection.');
+      } else if (error.message === 'service_unavailable') {
+        throw new Error('Cloud sync service is temporarily unavailable. Please try again later.');
+      }
       throw error;
     }
   }
@@ -174,6 +181,13 @@ class SyncManager {
         await this.pushToCloud();
       } else {
         console.error('Failed to push to cloud:', error);
+        if (error.message === 'quota_exceeded') {
+          throw new Error('Cloud sync quota exceeded. Your data is safe locally. Sync will resume tomorrow.');
+        } else if (error.message === 'network_error') {
+          throw new Error('Network connection failed. Your data is saved locally.');
+        } else if (error.message === 'service_unavailable') {
+          throw new Error('Cloud sync service is temporarily unavailable. Your data is safe locally.');
+        }
         throw error;
       }
     }
@@ -209,8 +223,15 @@ class SyncManager {
 
       console.log('Successfully pulled from cloud');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to pull from cloud:', error);
+      if (error.message === 'quota_exceeded') {
+        throw new Error('Cloud sync quota exceeded. Please try again tomorrow.');
+      } else if (error.message === 'network_error') {
+        throw new Error('Network connection failed. Please check your internet connection.');
+      } else if (error.message === 'service_unavailable') {
+        throw new Error('Cloud sync service is temporarily unavailable. Please try again later.');
+      }
       throw error;
     }
   }

@@ -11,7 +11,8 @@ import { LandingPage } from '@/components/LandingPage';
 import { PasscodeSettings } from '@/components/PasscodeSettings';
 import { CardForm } from '@/components/CardForm';
 import { CardDisplay } from '@/components/CardDisplay';
-import { SetupRecoveryModal } from '@/components/recovery/SetupRecoveryModal';
+import { CloudRecovery } from '@/components/recovery/CloudRecovery';
+import { DevClearCacheButton } from '@/components/debug/DevClearCacheButton';
 import { 
   Button, 
   Grid,
@@ -60,7 +61,7 @@ export default function HomePage() {
     severity: 'info'
   });
   const [showPasscodeSettings, setShowPasscodeSettings] = useState(false);
-  const [showRecoverySetup, setShowRecoverySetup] = useState(false);
+  const [showCloudRecovery, setShowCloudRecovery] = useState(false);
   const [selectedCardType, setSelectedCardType] = useState<CardType | 'all'>('all');
   const [creationStep, setCreationStep] = useState<'main' | 'type-select' | 'form'>('main');
   const [selectedTypeForCreation, setSelectedTypeForCreation] = useState<CardType | null>(null);
@@ -82,8 +83,9 @@ export default function HomePage() {
     cleanupExpiredOTPs();
     setCards(getAllCards());
     
-    // Trigger sync on app startup
-    syncHooks.onAppStartup();
+    // Disabled automatic startup sync to prevent excessive KV reads
+    // Users can manually sync via Settings → Cloud Sync → "Sync Now"
+    // syncHooks.onAppStartup();
   }, []);
 
   const handleGetStarted = () => {
@@ -312,7 +314,25 @@ export default function HomePage() {
 
   // Show landing page for first-time visitors
   if (showLanding) {
-    return <LandingPage onGetStarted={handleGetStarted} />;
+    return (
+      <>
+        <LandingPage 
+          onGetStarted={handleGetStarted}
+          onRecoverFromCloud={() => setShowCloudRecovery(true)}
+        />
+        
+        {/* Cloud Recovery Dialog for new users */}
+        <CloudRecovery
+          open={showCloudRecovery}
+          onClose={() => setShowCloudRecovery(false)}
+          onRecoveryComplete={() => {
+            setShowCloudRecovery(false);
+            setShowLanding(false); // Hide landing page after successful recovery
+            window.location.reload(); // Reload to show recovered data
+          }}
+        />
+      </>
+    );
   }
 
   return (
@@ -965,18 +985,6 @@ export default function HomePage() {
         }}
       />
 
-      {/* Recovery Setup Modal */}
-      <SetupRecoveryModal
-        open={showRecoverySetup}
-        onClose={() => setShowRecoverySetup(false)}
-        onSetupComplete={() => {
-          setNotification({
-            open: true,
-            message: 'Cloud sync enabled successfully!',
-            severity: 'success'
-          });
-        }}
-      />
 
       {/* Notification System */}
       <Snackbar
@@ -993,6 +1001,9 @@ export default function HomePage() {
           {notification.message}
         </Alert>
       </Snackbar>
+
+      {/* Development-only cache clear button */}
+      <DevClearCacheButton />
     </Box>
   );
 }

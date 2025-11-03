@@ -229,8 +229,8 @@ export default function SecureSharePage() {
             </IconButton>
             <Box 
               sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+      display: 'flex',
+      alignItems: 'center',
                 gap: 1,
                 cursor: 'pointer',
                 '&:hover': {
@@ -479,7 +479,7 @@ export default function SecureSharePage() {
             )}
 
             {/* Error State - Link Already Used */}
-            {payload && error && error.includes('already been used') && (
+        {payload && error && error.includes('already been used') && (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Alert severity="error" sx={{ mb: 3 }}>
                   <Typography variant="body1" sx={{ fontWeight: 600 }}>
@@ -497,7 +497,7 @@ export default function SecureSharePage() {
                   Go Home
                 </Button>
               </Box>
-            )}
+        )}
 
             {/* PIN Entry Step */}
             {payload && step === 'pin-entry' && !error.includes('already been used') && (
@@ -512,10 +512,10 @@ export default function SecureSharePage() {
                 <Box sx={{ mb: 3 }}>
                   <TextField
                     fullWidth
-                    type="password"
+              type="password"
                     label="PIN"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
                     placeholder="Enter the PIN provided with this link"
                     variant="outlined"
                     error={!!error && !error.includes('already been used')}
@@ -538,8 +538,8 @@ export default function SecureSharePage() {
                 <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
                   <Button
                     variant="contained"
-                    onClick={handleDecrypt}
-                    disabled={!pin}
+              onClick={handleDecrypt}
+              disabled={!pin}
                     startIcon={<VisibilityIcon />}
                     sx={{ 
                       flex: 1,
@@ -570,10 +570,10 @@ export default function SecureSharePage() {
                   </Button>
                 </Box>
               </Box>
-            )}
+        )}
 
             {/* Preview Step */}
-            {payload && step === 'preview' && preview && (
+        {payload && step === 'preview' && preview && (
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                   <VisibilityIcon sx={{ color: 'success.main' }} />
@@ -667,7 +667,7 @@ export default function SecureSharePage() {
                 <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
                   <Button
                     variant="contained"
-                    onClick={handleImport}
+              onClick={handleImport}
                     startIcon={<ImportIcon />}
                     sx={{ 
                       flex: 1,
@@ -677,9 +677,9 @@ export default function SecureSharePage() {
                       '&:hover': {
                         backgroundColor: 'success.dark',
                       }
-                    }}
-                  >
-                    Import Card
+              }}
+            >
+              Import Card
                   </Button>
                   <Button
                     variant="outlined"
@@ -692,9 +692,9 @@ export default function SecureSharePage() {
                     sx={{ 
                       flex: { xs: 1, sm: 'none' },
                       py: 1.5
-                    }}
-                  >
-                    Back
+              }}
+            >
+              Back
                   </Button>
                 </Box>
               </Box>

@@ -58,7 +58,20 @@ export function SetupRecoveryModal({ open, onClose, onSetupComplete }: SetupReco
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      BackdropProps={{
+        sx: {
+          backgroundColor: (theme) => theme.palette.mode === 'dark' 
+            ? 'rgba(0, 0, 0, 0.9)' 
+            : 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(8px)'
+        }
+      }}
+    >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <CloudIcon color="primary" />

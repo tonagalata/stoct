@@ -63,6 +63,19 @@ export const ServiceWorkerProvider = ({ children }: ServiceWorkerProviderProps) 
           window.location.reload();
         });
 
+        // Listen for messages from the service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+            console.log('SW: Update available');
+            // You could show a notification to the user here
+          }
+          
+          if (event.data && event.data.type === 'CACHE_CLEARED') {
+            console.log('SW: Cache cleared in development mode');
+            // Optionally show a toast notification
+          }
+        });
+
         // Check for updates every 30 seconds when the page is visible
         const checkForUpdates = () => {
           if (!document.hidden) {
@@ -109,6 +122,32 @@ export const ServiceWorkerProvider = ({ children }: ServiceWorkerProviderProps) 
     setShowUpdatePrompt(false);
     setIsUpdateAvailable(false);
   };
+
+  // Development helper function to manually clear cache
+  const clearCacheManually = async () => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const messageChannel = new MessageChannel();
+      
+      messageChannel.port1.onmessage = (event) => {
+        console.log('SW: Manual cache clear result:', event.data);
+        // Force reload after cache clear
+        window.location.reload();
+      };
+      
+      navigator.serviceWorker.controller.postMessage(
+        { type: 'CLEAR_CACHE' },
+        [messageChannel.port2]
+      );
+    }
+  };
+
+  // Add global function for development
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      (window as any).clearSWCache = clearCacheManually;
+      console.log('SW: Development mode - use clearSWCache() in console to manually clear cache');
+    }
+  }, []);
 
   return (
     <ServiceWorkerContext.Provider value={{ isUpdateAvailable, updateApp, isOnline }}>

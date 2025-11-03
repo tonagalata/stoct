@@ -21,10 +21,16 @@ import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   Fingerprint as FingerprintIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Security as SecurityIcon,
+  Cloud as CloudIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { setupPasscode, registerBiometricCredential, isBiometricSetup } from '@/lib/passcode-storage';
-import { RecoverySetupFlow } from './recovery/RecoverySetupFlow';
+import { syncManager } from '@/lib/sync/sync-manager';
+import { PasswordInput } from './common/PasswordInput';
+import { validatePassword } from '@/lib/password-validation';
+import { CloudRecovery } from './recovery/CloudRecovery';
 
 interface PasscodeSetupProps {
   open: boolean;
@@ -40,9 +46,14 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [biometricSupported, setBiometricSupported] = useState(false);
-  const [step, setStep] = useState<'setup' | 'biometric' | 'recovery'>('setup');
-  const [showRecoveryFlow, setShowRecoveryFlow] = useState(false);
+  const [step, setStep] = useState<'setup' | 'recovery' | 'biometric' | 'complete'>('setup');
   const [completedPasscode, setCompletedPasscode] = useState('');
+  const [cloudPassword, setCloudPassword] = useState('');
+  const [recoveryOptions, setRecoveryOptions] = useState({
+    cloudSync: false,
+    localBackup: false
+  });
+  const [showCloudRecovery, setShowCloudRecovery] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -104,12 +115,8 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
       
       setCompletedPasscode(passcode);
       
-      if (biometricSupported) {
-        setStep('biometric');
-      } else {
-        // Show recovery setup after passcode is created
-        setShowRecoveryFlow(true);
-      }
+      // Always go to recovery setup first - it's essential
+      setStep('recovery');
     } catch (error: any) {
       setError(error.message || 'Failed to setup passcode');
     } finally {
@@ -129,12 +136,10 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
       const success = await registerBiometricCredential();
       if (success) {
         setError('');
-        // Show recovery setup after biometric setup
-        setShowRecoveryFlow(true);
+        setStep('complete');
       } else {
         setError('Biometric registration failed. You can still use your passcode.');
-        // Show recovery setup even if biometric failed
-        setShowRecoveryFlow(true);
+        setStep('complete');
       }
     } catch (error: any) {
       console.error('Biometric setup error:', error);
@@ -160,17 +165,75 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
   };
 
   const handleSkipBiometric = () => {
-    // Show recovery setup after skipping biometric
-    setShowRecoveryFlow(true);
+    setStep('complete');
   };
 
   const handleRecoveryComplete = () => {
-    setShowRecoveryFlow(false);
-    onComplete();
+    // After recovery setup, move to biometric if supported, otherwise complete
+    if (biometricSupported) {
+      setStep('biometric');
+    } else {
+      setStep('complete');
+    }
   };
 
   const handleRecoverySkip = () => {
-    setShowRecoveryFlow(false);
+    // Even if skipped, continue to biometric or complete
+    if (biometricSupported) {
+      setStep('biometric');
+    } else {
+      setStep('complete');
+    }
+  };
+
+  const handleSetupCloudSync = async () => {
+    if (!cloudPassword.trim()) {
+      setError('Please create a strong password for cloud sync.');
+      return;
+    }
+
+    const validation = validatePassword(cloudPassword);
+    if (!validation.overall.isValid) {
+      setError('Password does not meet security requirements. Please create a stronger password.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      await syncManager.initializeSync(cloudPassword);
+      setRecoveryOptions(prev => ({ ...prev, cloudSync: true }));
+      
+      // Continue to biometric or complete
+      if (biometricSupported) {
+        setStep('biometric');
+      } else {
+        setStep('complete');
+      }
+    } catch (err: any) {
+      console.error('Cloud sync setup error:', err);
+      if (err.message === 'network_error' || err.message.includes('Network connection failed')) {
+        setError('🌐 Network connection failed. Please check your internet connection.');
+      } else if (err.message === 'quota_exceeded' || err.message.includes('quota exceeded')) {
+        setError('⚠️ Cloud sync quota exceeded. Please try again tomorrow.');
+      } else if (err.message === 'service_unavailable' || err.message.includes('service is temporarily unavailable')) {
+        setError('🔧 Cloud sync service is temporarily unavailable. Please try again later.');
+      } else {
+        setError('Failed to setup cloud sync: ' + err.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCloudRecoveryComplete = () => {
+    setShowCloudRecovery(false);
+    // Close the passcode setup modal and complete the flow
+    onComplete();
+  };
+
+  const handleFinalComplete = () => {
     onComplete();
   };
 
@@ -202,6 +265,14 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
           borderColor: 'divider'
         }
       }}
+      BackdropProps={{
+        sx: {
+          backgroundColor: (theme) => theme.palette.mode === 'dark' 
+            ? 'rgba(0, 0, 0, 0.9)' 
+            : 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(8px)'
+        }
+      }}
     >
       <DialogTitle
         sx={{
@@ -214,7 +285,10 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <LockIcon sx={{ color: 'primary.main' }} />
           <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 600 }}>
-            {step === 'setup' ? 'Setup Passcode' : 'Enable Biometric Authentication'}
+            {step === 'setup' && 'Setup Passcode'}
+            {step === 'recovery' && 'Secure Your Data'}
+            {step === 'biometric' && 'Enable Biometric Authentication'}
+            {step === 'complete' && 'Setup Complete'}
           </Typography>
         </Box>
         <IconButton onClick={handleClose} size="small">
@@ -223,7 +297,7 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
       </DialogTitle>
 
       <DialogContent sx={{ backgroundColor: (t) => (t.palette.mode === 'dark' ? '#121212' : '#ffffff') }}>
-        {step === 'setup' ? (
+        {step === 'setup' && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="body2">
@@ -280,8 +354,92 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
                 {error}
               </Alert>
             )}
+
+            {/* Cloud Recovery Option */}
+            <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
+                Already have a cloud backup?
+              </Typography>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<CloudIcon />}
+                onClick={() => setShowCloudRecovery(true)}
+                sx={{ 
+                  borderStyle: 'dashed',
+                  color: 'primary.main',
+                  borderColor: 'primary.main',
+                  '&:hover': {
+                    borderStyle: 'solid',
+                    backgroundColor: 'primary.50'
+                  }
+                }}
+              >
+                Recover from Cloud
+              </Button>
+            </Box>
           </Box>
-        ) : (
+        )}
+
+        {step === 'recovery' && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+            <Alert severity="success" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                <strong>Great!</strong> Your passcode is set. Now let's protect your data with recovery options.
+              </Typography>
+            </Alert>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                backgroundColor: 'primary.50',
+                border: '1px solid',
+                borderColor: 'primary.200'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <SecurityIcon color="primary" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Why Recovery Matters
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                • <strong>Never lose your cards</strong> - even if you forget your passcode
+                <br />
+                • <strong>Access from any device</strong> - sync across all your devices
+                <br />
+                • <strong>Zero-knowledge security</strong> - your data stays private
+              </Typography>
+            </Paper>
+
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+                Create Cloud Sync Password
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                This is separate from your app passcode and provides maximum security for cloud storage.
+              </Typography>
+              
+              <PasswordInput
+                label="Cloud Sync Password"
+                value={cloudPassword}
+                onChange={setCloudPassword}
+                showStrengthMeter={true}
+                showRequirements={true}
+                showGenerator={true}
+              />
+            </Box>
+
+            {error && (
+              <Alert severity="error">
+                {error}
+              </Alert>
+            )}
+          </Box>
+        )}
+
+        {step === 'biometric' && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
             <Paper
               elevation={0}
@@ -312,10 +470,48 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
             )}
           </Box>
         )}
+
+        {step === 'complete' && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1, textAlign: 'center' }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                backgroundColor: 'success.50',
+                border: '1px solid',
+                borderColor: 'success.200'
+              }}
+            >
+              <SecurityIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
+              <Typography variant="h6" sx={{ mb: 1, color: 'text.primary' }}>
+                Your Stoct is Secure!
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {recoveryOptions.cloudSync 
+                  ? 'Your data is protected with both passcode and cloud sync.'
+                  : 'Your data is protected with a passcode.'
+                }
+              </Typography>
+              
+              {recoveryOptions.cloudSync && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 2 }}>
+                  <CloudIcon color="primary" fontSize="small" />
+                  <Typography variant="body2" color="primary.main" sx={{ fontWeight: 600 }}>
+                    Cloud Sync Enabled
+                  </Typography>
+                </Box>
+              )}
+            </Paper>
+
+            <Typography variant="body2" color="text.secondary">
+              You can manage security settings anytime in the app settings.
+            </Typography>
+          </Box>
+        )}
       </DialogContent>
 
       <DialogActions sx={{ p: 3, pt: 0, gap: 1 }}>
-        {step === 'setup' ? (
+        {step === 'setup' && (
           <>
             <Button
               onClick={handleSkip}
@@ -333,15 +529,30 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
               {isLoading ? <CircularProgress size={20} /> : 'Setup Passcode'}
             </Button>
           </>
-        ) : (
+        )}
+
+        {step === 'recovery' && (
           <>
             <Button
-              onClick={() => setStep('setup')}
+              onClick={handleRecoverySkip}
               variant="outlined"
               sx={{ minWidth: 80 }}
             >
-              Back
+              Skip for Now
             </Button>
+            <Button
+              onClick={handleSetupCloudSync}
+              variant="contained"
+              disabled={isLoading || !cloudPassword.trim()}
+              sx={{ minWidth: 120 }}
+            >
+              {isLoading ? <CircularProgress size={20} /> : 'Enable Cloud Sync'}
+            </Button>
+          </>
+        )}
+
+        {step === 'biometric' && (
+          <>
             <Button
               onClick={handleSkipBiometric}
               variant="outlined"
@@ -360,15 +571,25 @@ export function PasscodeSetup({ open, onComplete, onSkip }: PasscodeSetupProps) 
             </Button>
           </>
         )}
+
+        {step === 'complete' && (
+          <Button
+            onClick={handleFinalComplete}
+            variant="contained"
+            sx={{ minWidth: 120 }}
+          >
+            Get Started
+          </Button>
+        )}
       </DialogActions>
 
-      {/* Recovery Setup Flow */}
-      <RecoverySetupFlow
-        open={showRecoveryFlow}
-        onClose={handleRecoverySkip}
-        onComplete={handleRecoveryComplete}
-        passcode={completedPasscode}
+      {/* Cloud Recovery Dialog */}
+      <CloudRecovery
+        open={showCloudRecovery}
+        onClose={() => setShowCloudRecovery(false)}
+        onRecoveryComplete={handleCloudRecoveryComplete}
       />
+
     </Dialog>
   );
 }
