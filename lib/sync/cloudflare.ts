@@ -62,7 +62,7 @@ export async function downloadEncrypted(userId: string): Promise<{ ivct: Uint8Ar
 export async function uploadEncrypted(userId: string, ivct: Uint8Array, ifMatch: string): Promise<{ etag: string, version: number }> {
   try {
     const r = await fetch(`${WORKER_BASE}/v1/put?user=${encodeURIComponent(userId)}`, {
-      method:'POST', headers:{ 'content-type':'application/octet-stream', 'if-match': ifMatch }, body: ivct
+      method:'POST', headers:{ 'content-type':'application/octet-stream', 'if-match': ifMatch }, body: ivct.buffer
     });
     
     if (r.status === 412) throw new Error('precondition');
