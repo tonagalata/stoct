@@ -1,5 +1,5 @@
 export interface Env {
-  VAULTS: KVNamespace; // KV stores metadata + encrypted vault blob
+  VAULTS: any; // KV stores metadata + encrypted vault blob (KVNamespace in Cloudflare context)
 }
 
 type Kdf = { type: 'passkey-prf'|'argon2id'|'pbkdf2-sha256', salt?: string|null, params?: any };
